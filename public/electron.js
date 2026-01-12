@@ -17,6 +17,8 @@ const { format, writeToPath } = require('@fast-csv/format');
 const { parse } = require('fast-csv');
 const { pipeline } = require('node:stream/promises');
 
+const { handlerMap } = require('./handlers')
+
 
 let panddaInspectColumns = [
   'dtag',
@@ -199,8 +201,10 @@ function createWindow() {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(
   async () => {
+    // Parse the command line used to launch the program for a file path
     const args = yargs(process.argv.slice(1)).parse()._[0];
 
+    // Define and look for input and output csv files 
     const pandaAnalyseEventsPath = path.join(args, 'analyses', 'pandda_analyse_events.csv');
     const pandaInspectEventsPath = path.join(args, 'analyses', 'pandda_inspect_events.csv');
     const pandaAnalyseSitesPath = path.join(args, 'analyses', 'pandda_analyse_sites.csv');
@@ -214,6 +218,8 @@ app.whenReady().then(
 
     console.log(csvPath);
     // const df = pd.readCsv(csvPath);
+
+    // Read the input table
     const eventTableStream = fs.createReadStream(csvPath);
     const eventTable = []
     const eventTableParseStream = parse({ headers: true })
@@ -223,6 +229,7 @@ app.whenReady().then(
     // stream.write(siteDataFrameString);
     const finishedEventTableStream = await pipeline(eventTableStream, eventTableParseStream)
 
+    // Type the input data
     for (var eventTableIndex in eventTable) {
       eventTable[eventTableIndex][''] = parseInt(eventTableIndex);
       for (_property in eventTable[eventTableIndex]) {
@@ -233,45 +240,15 @@ app.whenReady().then(
       //eventTable[eventTableIndex]['site_idx'] = parseInt(eventTable[eventTableIndex]['site_idx']);
     }
 
-    // Add inspect records if not alread present
-    if (eventTable.length > 0) {
-      if (!('Viewed' in eventTable[0])) {
-        for (var eventTableIndex in eventTable) {
-          eventTable[eventTableIndex]['Interesting'] = 'False';
-          eventTable[eventTableIndex]['Ligand Placed'] = 'False';
-          eventTable[eventTableIndex]['Ligand Confidence'] = 'Low';
-          eventTable[eventTableIndex]['Comment'] = 'None';
-          eventTable[eventTableIndex]['Viewed'] = 'False';
-        }
-      }
-    }
-    // console.log(eventTable.show);
-    console.log(eventTable);
-
-    console.log(siteCSVPath);
-    // const siteDataFrame = pd.readCsv(siteCSVPath);
-    const siteDataFrameStream = fs.createReadStream(siteCSVPath);
-    const siteDataFrame = []
-    const parseStream = parse({ headers: true })
-      .on('error', error => console.error(error))
-      .on('data', row => siteDataFrame.push(row))
-      .on('end', (rowCount) => console.log(`Parsed ${rowCount} rows`));
-    // stream.write(siteDataFrameString);
-    const finishedStream = await pipeline(siteDataFrameStream, parseStream);
-    for (var siteTableIndex in siteDataFrame) {
-      for (_property in siteDataFrame[siteTableIndex]) {
-        if (_property in panddaInspectSitesColumnTypes) {
-          siteDataFrame[siteTableIndex][_property] = panddaInspectSitesColumnTypes[_property](siteDataFrame[siteTableIndex][_property]);
-        }
-      }
-    }
-    console.log(siteDataFrame);
     return {
       args: args,
       data: eventTable,
       siteData: siteDataFrame
     }
   }
+
+  // Once the input data is parsed, register the handlers for controlling the backend from the frontend
+  // 
 ).then((obj) => {
   const df = obj.data;
   const siteData = obj.siteData;
@@ -280,14 +257,14 @@ app.whenReady().then(
   // const loadURL = serve({ directory: args._[0] });
   // loadURL(mainWindow);
 
+  for (const [key, value] of Object.entries(object)) {
+    ipcMain.handle(key, value)
+  }
 
-  ipcMain.handle('get-args', async (event,) => {
-    return path.resolve(yargs(process.argv.slice(1)).parse()._[0])
+  // ipcMain.handle('get-args', async (event,) => {
+    
 
-  })
-
-
-
+  // })
 
   ipcMain.handle('get-data', async (event,) => {
     return df
