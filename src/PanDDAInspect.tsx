@@ -35,8 +35,8 @@ const Item = styled(Paper)(({ theme }) => ({
 }));
 
 const PanDDAInspectDatasetInfo = ({ state }) => {
-    console.log('dataset info in component');
-    console.log(state);
+    // console.log('dataset info in component');
+    // console.log(state);
     return (
         <div>
             <Stack spacing={0}>
@@ -95,35 +95,35 @@ const buttonStyle = {
 
 const PanDDAInspectDatasetControl = ({ state, handlers }) => {
 
-    console.log('In Dataset control');
-    console.log(handlers);
+    // console.log('In Dataset control');
+    // console.log(handlers);
 
-    const selectItems = state.data.map((record) => {
-        let colorGrade = Math.floor(record.z_peak * 10) * 100;
-        if (colorGrade == 1000) {
-            colorGrade = 900;
-        } else if (colorGrade == 0) {
-            colorGrade = 50;
-        }
-        return (
-            <MenuItem value={record['']}>
-                <Box sx={{ flexGrow: 1 }}>
-                    <Grid container spacing={0} columns={4}>
-                        <Grid size={2}>
-                            {record.dtag} {record.event_idx}
-                        </Grid>
-                        <Grid size={1}>
-                            Score: <Box sx={{ color: green[colorGrade] }}>{Number.parseFloat(record.z_peak).toFixed(2)}</Box>
-                        </Grid>
-                        <Grid size={1}>
-                            <Typography variant="inherit" align='right'>Site: {record.site_idx}</Typography>
-                        </Grid>
-                    </Grid>
-                </Box>
-            </MenuItem>
-        )
-    }
-    );
+    // const selectItems = state.inputData.map((record) => {
+    //     let colorGrade = Math.floor(record.z_peak * 10) * 100;
+    //     if (colorGrade == 1000) {
+    //         colorGrade = 900;
+    //     } else if (colorGrade == 0) {
+    //         colorGrade = 50;
+    //     }
+    //     return (
+    //         <MenuItem value={record['']}>
+    //             <Box sx={{ flexGrow: 1 }}>
+    //                 <Grid container spacing={0} columns={4}>
+    //                     <Grid size={2}>
+    //                         {record.dtag} {record.event_idx}
+    //                     </Grid>
+    //                     <Grid size={1}>
+    //                         Score: <Box sx={{ color: green[colorGrade] }}>{Number.parseFloat(record.z_peak).toFixed(2)}</Box>
+    //                     </Grid>
+    //                     <Grid size={1}>
+    //                         <Typography variant="inherit" align='right'>Site: {record.site_idx}</Typography>
+    //                     </Grid>
+    //                 </Grid>
+    //             </Box>
+    //         </MenuItem>
+    //     )
+    // }
+    // );
 
     const [isLoading, setIsLoading] = useState(false);
 
@@ -133,46 +133,34 @@ const PanDDAInspectDatasetControl = ({ state, handlers }) => {
         }}>
             <div>
                 <Item>Dataset Control</Item>
-                <FormControl fullWidth disabled={isLoading ? true : false}>
-                    <InputLabel id="demo-simple-select-label">Select Event</InputLabel>
-                    <Select
-                        labelId="demo-simple-select-label"
-                        id="demo-simple-select"
-                        // value={age}
-                        label="Age"
-                        onChange={isLoading ? (event) => {console.log('Loading data! Disabled!')} : (event) => {setIsLoading(true); handlers.handleSelectEvent(event, setIsLoading)}}
-                    >
-                        {selectItems}
-                    </Select>
-                </FormControl>
 
                 <Box sx={{ flexGrow: 1 }}>
                     <Grid container spacing={0} columns={2}>
                         <Grid size={1}>
                             <Button
                                 sx={buttonStyle}
-                                onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handlePreviousEvent(setIsLoading)}}
+                                onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handlePreviousLandmark(setIsLoading)}}
                                 disabled={isLoading ? true : false}
-                            >Previous Event</Button>
+                            >Previous Landmark</Button>
                         </Grid>
                         <Grid size={1}>
                             <Button
                                 sx={buttonStyle}
-                                onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handleNextEvent(setIsLoading)} }
+                                onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handleNextLandmark(setIsLoading)} }
                                 disabled={isLoading ? true : false}
-                            >Next Event</Button>
+                            >Next Landmark</Button>
                         </Grid>
                         <Grid size={1}>
                             <Button 
                             sx={buttonStyle} 
-                            onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handlePreviousSite(setIsLoading)}} 
-                            disabled={isLoading ? true : false}>Previous Site</Button>
+                            onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handlePreviousData(setIsLoading)}} 
+                            disabled={isLoading ? true : false}>Previous Data</Button>
                         </Grid>
                         <Grid size={1}>
                             <Button 
                             sx={buttonStyle} 
-                            onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handleNextSite(setIsLoading)}} 
-                            disabled={isLoading ? true : false}>Next Site</Button>
+                            onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handleNextData(setIsLoading)}} 
+                            disabled={isLoading ? true : false}>Next Data</Button>
                         </Grid>
                         <Grid size={1}>
                             <Button 
@@ -180,23 +168,7 @@ const PanDDAInspectDatasetControl = ({ state, handlers }) => {
                             onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handleNextUnviewed(setIsLoading)}} 
                             disabled={isLoading ? true : false}>Next Unviewed</Button>
                         </Grid>
-                        <Grid size={1}>
-                            <Button 
-                            sx={buttonStyle} 
-                            onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handleNextUnmodelled(setIsLoading)}} 
-                            disabled={isLoading ? true : false}>Next Unmodelled</Button>
-                        </Grid>
-                        <Grid size={1}>
-                            <Button 
-                            sx={buttonStyle} 
-                            onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handleNextEventDontSave(setIsLoading)}} 
-                            disabled={isLoading ? true : false}>Next Event (Don't Save)</Button>
-                        </Grid>
-                        {/* <Grid size={1}>
-              <Button>Select Event</Button>
-            </Grid> */}
                     </Grid>
-
                 </Box>
             </div>
         </Box>
@@ -243,12 +215,40 @@ const PanDDAInspectModellingControl = ({ state, handlers }) => {
     );
 }
 
+const Annotation = ({ state, handlers }) => {
+    const [isLoading, setIsLoading] = useState(false);
+
+    return (
+        <div>
+            <Item>Annotation Control</Item>
+            <Box sx={{
+                flexGrow: 1,
+                // height: window.innerHeight * 0.2
+            }}>
+                <Grid container spacing={0} columns={2}>
+                    <Grid size={1}>
+                        <Button sx={buttonStyle}
+                                onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handleFalsePositive(setIsLoading)}}
+                                disabled={isLoading ? true : false}>False Positive</Button>
+                    </Grid>
+                    <Grid size={1}>
+                        <Button sx={buttonStyle}
+                                onClick={isLoading ? () => {console.log('Loading data! Disabled!')} : () => {setIsLoading(true); handlers.handleTruePositive(setIsLoading)}}
+                                disabled={isLoading ? true : false}>True Positive</Button>
+                    </Grid>
+                </Grid>
+
+            </Box>
+        </div>
+    );
+}
+
 
 
 
 const PanDDAInspectAnnotation = ({ state, handlers }) => {
-    console.log('In inspect annotation');
-    console.log(state);
+    // console.log('In inspect annotation');
+    // console.log(state);
 
     return (
         <Box sx={{
@@ -349,8 +349,8 @@ const PanDDAInspectMisc = ({ state, handlers }) => {
 
 export const PanDDAInspect = ({ state, handlers }) => {
 
-    console.log('In panDDA Inspect');
-    console.log(handlers);
+    // console.log('In panDDA Inspect');
+    // console.log(handlers);
 
     return (
         <ThemeProvider theme={theme}>
@@ -358,10 +358,8 @@ export const PanDDAInspect = ({ state, handlers }) => {
                 <div>
                     <PanDDAInspectSummary state={state}></PanDDAInspectSummary>
                     <PanDDAInspectDatasetControl state={state} handlers={handlers}></PanDDAInspectDatasetControl>
-                    <PanDDAInspectModellingControl state={state} handlers={handlers}></PanDDAInspectModellingControl>
-                    <PanDDAInspectAnnotation state={state} handlers={handlers}></PanDDAInspectAnnotation>
-                    <PanDDAInspectMisc state={state} handlers={handlers}></PanDDAInspectMisc>
-                </div>
+                    <Annotation state={state} handlers={handlers}></Annotation>
+                 </div>
             </Box>
         </ThemeProvider>
     );

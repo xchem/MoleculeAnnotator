@@ -23,30 +23,12 @@ type LigandConfidenceType = typeof LigandConfidence[keyof typeof LigandConfidenc
 
 
 export type PanDDAInspectState = {
-  table_idx: number;
-  dtag: string;
-  event_idx: number;
-  site: number;
-  bdc: number;
-  x: number;
-  y: number;
-  z: number;
-  z_blob_peak: number;
-  z_blob_size: number;
-  resolution: number;
-  map_uncertainty: number;
-  r_work: number;
-  r_free: number;
-  event_comment: string;
-  event_interesting: EventInterestingType;
-  ligand_placed: LigandPlacedType;
-  ligand_confidence: LigandConfidenceType;
-  site_name: string;
-  site_comment: string;
-  data: any;
-  siteData: any;
+  dataIdx: number;
+  landmarkIdx: number;
+  annotation: string,
+  inputData: any;
+  outputData: any;
   args: any;
-  ligandFiles: any;
   activeProteinMol: any;
   activeLigandMol: any;
   loading: boolean

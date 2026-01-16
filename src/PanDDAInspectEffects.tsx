@@ -41,6 +41,7 @@ async function loadMoleculeFromPath(commandCentre, glRef, dispatch, mol_path, mo
     if (path && mol_name) {
 
         const newMolecule = new MoorhenMolecule(commandCentre, glRef);
+        console.log(`Getting data from: ${mol_path}`)
 
         const data = await window.electronAPI.getFileFromPath({ path: mol_path });
         console.log(data);
@@ -99,24 +100,24 @@ async function loadMoleculeFromPath(commandCentre, glRef, dispatch, mol_path, mo
 
 }
 
-async function loadMapFromPath(commandCentre, glRef, dispatch, map_path, map_name, coord) {
+async function loadMapFromPath(commandCentre, glRef, dispatch, map_path, map_name, ) {
 
     if (path && map_name) {
 
         const newMap = new MoorhenMap(commandCentre, glRef);
         console.log(map_path);
-        console.log(map_name);
+        console.log(`Loading map from: ${map_path}`);
         const data = await window.electronAPI.getFileFromPath({ path: map_path });
         console.log(data);
         console.log('await load map...');
         await newMap.loadToCootFromMapData(data, map_name, false);
         newMap.isEM = false;
-        if (!(coord == null)) {
-            newMap.mapCentre = coord;
-            console.log('await centre map...');
+        // if (!(coord == null)) {
+        //     newMap.mapCentre = coord;
+        //     console.log('await centre map...');
 
-            await newMap.centreOnMap();
-        }
+        //     await newMap.centreOnMap();
+        // }
 
         // Dispatch the new molecule to Moorhen
         console.log('await dispatch map...');
@@ -135,11 +136,22 @@ async function loadMTZFromPath(commandCentre, glRef, dispatch, map_path, map_nam
         const newMap = new MoorhenMap(commandCentre, glRef);
 
         const data = await window.electronAPI.getFileFromPath({ path: map_path });
+        console.log(data);
+
         console.log('await load map...');
         for (var index in structureFactors) {
             try {
                 console.log(`Trying to open mtz with ${structureFactors[index].f} ${structureFactors[index].phi}`);
-                const selectedColumns = { F: structureFactors[index].f, PHI: structureFactors[index].phi, Fobs: "FP", SigFobs: "SIGFP", FreeR: "FREE", isDifference: false, useWeight: false, calcStructFact: true }
+                const selectedColumns = { 
+                    F: structureFactors[index].f, 
+                    PHI: structureFactors[index].phi, 
+                    Fobs: null, 
+                    SigFobs: null, 
+                    FreeR: null, 
+                    isDifference: false, 
+                    useWeight: false, 
+                    calcStructFact: false 
+                }
                 await newMap.loadToCootFromMtzData(data, map_name, selectedColumns);
                 console.log(newMap);
                 break;
@@ -149,12 +161,12 @@ async function loadMTZFromPath(commandCentre, glRef, dispatch, map_path, map_nam
             }
         }
         // newMap.isEM = false;
-        if (!(coord) == null) {
-            newMap.mapCentre = coord;
-            console.log('await centre map...');
+        // if (!(coord) == null) {
+        //     newMap.mapCentre = coord;
+        //     console.log('await centre map...');
 
-            await newMap.centreOnMap();
-        }
+        //     await newMap.centreOnMap();
+        // }
 
         // Dispatch the new molecule to Moorhen
         console.log('await dispatch map...');
@@ -175,20 +187,11 @@ async function updateData(dispatch) {
     );
 
 }
-async function updateSiteData(dispatch) {
-    dispatch(
-        {
-            'type': 'updateSiteData',
-        }
-    );
 
-}
 async function saveData(pandda_inspect_state) {
     await window.electronAPI.saveData({ data: pandda_inspect_state.data });
 }
-async function saveSiteData(pandda_inspect_state) {
-    await window.electronAPI.saveSiteData({ data: pandda_inspect_state.siteData });
-}
+
 async function removeMolJS(coot_dispatch, _mol) {
     console.log(`removing mol ${_mol.molNo}`);
     await coot_dispatch(hideMolecule({ molNo: _mol.molNo }));
@@ -200,52 +203,67 @@ async function removeMapJS(coot_dispatch, _map) {
     await coot_dispatch(removeMap(_map));
 }
 
-export async function loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state) {
+async function updateCentre(state, dataIdx, landmarkIdx, mol) {
+    let chain = state.inputData[dataIdx].landmarks[landmarkIdx][0];
+    let res = state.inputData[dataIdx].landmarks[landmarkIdx][1];
+    let cid = `//${chain}/${res}`;
+    console.log(`cid: ${cid}`);
+    console.log(mol);
+    await mol.centreOn(cid);
+}
+
+export async function loadXtalData(
+    cootInitialized, 
+    glRef, 
+    commandCentre, 
+    molecules, 
+    maps, 
+    coot_dispatch, 
+    dispatch, 
+    state,
+    dataIdx,
+    landmarkIdx
+) {
     console.log('Loading molecule if possible...');
-    console.log(pandda_inspect_state);
 
     if (cootInitialized && glRef.current && commandCentre.current) {
-        console.log(molecules);
-        console.log(maps);
-        console.log('Awaiting delete molecules...');
+        // console.log(molecules);
+        // console.log(maps);
+        // console.log('Awaiting delete molecules...');
         await molecules.moleculeList.map((_mol) => {
             removeMolJS(coot_dispatch, _mol);
         });
-        console.log('Awaiting delete maps...');
-        console.log(maps);
+        // console.log('Awaiting delete maps...');
+        // console.log(maps);
         await maps.map((_map) => {
             removeMapJS(coot_dispatch, _map);
         });
 
+        // Create the new molecule
         let newMolecule;
 
-        const mol_name = pandda_inspect_state.dtag;
-        const mol_path = path.join(pandda_inspect_state.args, 'processed_datasets', pandda_inspect_state.dtag, 'modelled_structures', `${pandda_inspect_state.dtag}-pandda-model.pdb`);
-        console.log(`Loading mol from ${mol_path}`)
-        console.log('Awaiting load molecule...');
-        console.log(pandda_inspect_state.ligandFiles.get(mol_name));
-        newMolecule = await loadMoleculeFromPath(commandCentre, glRef, coot_dispatch, mol_path, mol_name, pandda_inspect_state.ligandFiles.get(mol_name));
-        console.log(`newMolecule is ${newMolecule}`);    
-
-        if (newMolecule == null) {
-            const mol_name = pandda_inspect_state.dtag;
-            const mol_path = path.join(pandda_inspect_state.args, 'processed_datasets', pandda_inspect_state.dtag, `${pandda_inspect_state.dtag}-pandda-input.pdb`);
-            console.log(`Loading mol from ${mol_path}`)
-            console.log('Awaiting load molecule...');
-            console.log(pandda_inspect_state.ligandFiles.get(mol_name));
-            newMolecule = await loadMoleculeFromPath(commandCentre, glRef, coot_dispatch, mol_path, mol_name, pandda_inspect_state.ligandFiles.get(mol_name));
-        }
-
+        const mol_name = state.inputData[dataIdx].dtag;
+        const mol_path = state.inputData[dataIdx].pdb;
+        // console.log(`Loading mol from ${mol_path}`)
+        // console.log('Awaiting load molecule...');
+        // console.log(state.ligandFiles.get(mol_name));
+        newMolecule = await loadMoleculeFromPath(commandCentre, glRef, coot_dispatch, mol_path, mol_name, []);
+        // console.log(`newMolecule is ${newMolecule}`);    
+        console.log('New molecule');
+        console.log(newMolecule);
+        console.log(state);
+        console.log(dataIdx);
+        console.log(landmarkIdx);
+        await updateCentre(state, dataIdx, landmarkIdx, newMolecule);
 
         try {
-            const map_name = `${pandda_inspect_state.dtag}_${pandda_inspect_state.event_idx}`;
-            const map_path = path.join(pandda_inspect_state.args, 'processed_datasets', pandda_inspect_state.dtag, `${pandda_inspect_state.dtag}-event_${pandda_inspect_state.event_idx}_1-BDC_${Number.parseFloat(pandda_inspect_state.bdc).toFixed(2)}_map.native.ccp4`);
-            console.log(`Loading map from ${map_path}`)
-            console.log('Awaiting load map...');
-            console.log(`Centering ${[pandda_inspect_state.x, pandda_inspect_state.y, pandda_inspect_state.z]}`);
-            console.log(`Loading: ${map_path} as ${map_name}`);
-            await loadMapFromPath(commandCentre, glRef, coot_dispatch, map_path, map_name,
-                [-pandda_inspect_state.x, -pandda_inspect_state.y, -pandda_inspect_state.z]);
+            const map_name = mol_name;
+            const map_path = state.inputData[dataIdx].xmap;
+            // console.log(`Loading map from ${map_path}`)
+            // console.log('Awaiting load map...');
+            // console.log(`Centering ${[pandda_inspect_state.x, pandda_inspect_state.y, pandda_inspect_state.z]}`);
+            // console.log(`Loading: ${map_path} as ${map_name}`);
+            await loadMTZFromPath(commandCentre, glRef, coot_dispatch, map_path, map_name, null);
         console.log('completed loading event data');
         } catch (error) { 
             console.log(error);
@@ -374,363 +392,268 @@ async function loadLigandAutobuild(glRef, commandCentre, molecules, coot_dispatc
 
 
 
-export function handleSelectEvent(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading, event: React.ChangeEvent<HTMLInputElement>) {
-    console.log('set event');
-    console.log((event.target as HTMLInputElement).value);
-    async function selectEvent() {
-        let new_index = (event.target as HTMLInputElement).value;
-        console.log(`Next event is ${new_index}...`);
-        const nextEventData = tableIdxToEvent(new_index, pandda_inspect_state);
 
-        dispatch(
-            {
-                type: 'handleSelectEvent',
-                value: parseInt((event.target as HTMLInputElement).value)
-            });
-        await loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, nextEventData);
-        setIsLoading(false);
-    }
-    selectEvent();
-}
-export function handleNextEvent(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) {
+
+export async function handleNextLandmark(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) {
     console.log('Select event');
-    async function nextEvent() {
-        const nextEventIdx = ((pandda_inspect_state.table_idx + 1) % pandda_inspect_state.data.length) % pandda_inspect_state.data.length;
-        console.log(`Next event IDX: ${nextEventIdx}`);
-        const nextEventData = tableIdxToEvent(nextEventIdx, pandda_inspect_state);
-        console.log(nextEventData);
-
-        await updateData(dispatch);
-        await updateSiteData(dispatch);
-
-        await saveData(pandda_inspect_state);
-        await saveSiteData(pandda_inspect_state);
-
-        await saveModel(molecules, pandda_inspect_state);
-        console.log(pandda_inspect_state);
-
-
-        await dispatch(
-            {
-                type: 'handleNextEvent',
-                commandCentre: commandCentre,
-                glRef: glRef
-            });
-
-
-        await loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, nextEventData);
-        setIsLoading(false);
-    }
-    nextEvent();
-    
-}
-export function handlePreviousEvent(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) {
-    async function previousEvent() {
-    console.log('Select event');
-    const nextEventIdx = (((pandda_inspect_state.table_idx - 1) % pandda_inspect_state.data.length) + pandda_inspect_state.data.length) % pandda_inspect_state.data.length;
-    console.log(`Next event IDX: ${nextEventIdx}, current is ${pandda_inspect_state.table_idx}`);
-    const nextEventData = tableIdxToEvent(nextEventIdx, pandda_inspect_state);
-    console.log(nextEventData);
-
-    dispatch(
-        {
-            type: 'handlePreviousEvent',
-            commandCentre: commandCentre,
-            glRef: glRef
-        });
-        await loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, nextEventData);
-        setIsLoading(false);
-    }
-    previousEvent();
-}
-export function handlePreviousSite(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading,) {
-    async function previousSite() {
-
-    const siteNums = pandda_inspect_state.data.map((_record) => { return _record.site_idx; });
-    const highestSiteNum = Math.max(...siteNums);
-    let newSite = (((pandda_inspect_state.site - 1) % highestSiteNum) + highestSiteNum) % highestSiteNum;
-    const siteRecords = pandda_inspect_state.data.filter((_record) => { return (_record.site_idx == newSite); });
-    const siteIndexes = siteRecords.map((_record) => { return _record['']; });
-    const nextEventIdx = Math.min(...siteIndexes);
-    console.log({
-        'siteNums': siteNums,
-        'highestSiteNum':highestSiteNum,
-        'siteRecords': siteRecords,
-        'newSite': newSite,
-        'siteIndexes': siteIndexes
-    })
-    console.log(`Next event IDX: ${nextEventIdx}`);
-    const nextEventData = tableIdxToEvent(nextEventIdx, pandda_inspect_state);
-    console.log(nextEventData);
-
-    console.log('previous site');
-    dispatch(
-        {
-            type: 'handlePreviousSite',
-            commandCentre: commandCentre,
-            glRef: glRef
-        });
-        await loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, nextEventData);
-        setIsLoading(false);
-    }
-    previousSite();
-}
-export function handleNextSite(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) {
-    async function nextSite() {
-        const siteNums = pandda_inspect_state.data.map((_record) => { return _record.site_idx; });
-        const highestSiteNum = Math.max(...siteNums);
-        let newSite = ((pandda_inspect_state.site + 1) % highestSiteNum) % highestSiteNum;
-        const siteRecords = pandda_inspect_state.data.filter((_record) => { return (_record.site_idx == newSite); });
-        const siteIndexes = siteRecords.map((_record) => { return _record['']; });
-        const nextEventIdx = Math.min(...siteIndexes);
+    async function nextLandmark() {
+        let dataIdx = state.dataIdx;
+        let landmarkIdx = state.landmarkIdx;
+        let landmarks = state.inputData[dataIdx].landmarks;
+        console.log(`dataIDX: ${dataIdx}; landmarkIdx: ${landmarkIdx}; landmarks: ${landmarks}`)
+        console.log('Next landmark function state:');
+        console.log(state);
         
-        console.log(`(effect) Next event IDX: ${nextEventIdx}`);
-        const nextEventData = tableIdxToEvent(nextEventIdx, pandda_inspect_state);
-        console.log(nextEventData);
-        console.log('Next site');
-        dispatch(
-            {
-                type: 'handleNextSite',
-                commandCentre: commandCentre,
-                glRef: glRef
-            });
-        await loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, nextEventData);
-        setIsLoading(false);
+        // Handle if moving onto new data
+        if (typeof landmarks[landmarkIdx+1] === 'undefined') {
+            console.log('Moving to new data!');
+            const nextDataIdx = dataIdx + 1;
+            const nextLandmarkIdx = 1;
+            if (typeof state.inputData[nextDataIdx] === 'undefined') {
+                alert('No more data!');
+                dispatch(
+                    {
+                        'type': 'finishedLoading'
+                    }
+                );
+                setIsLoading(false);
+            } else {
+                dispatch(
+                {
+                    type: 'handleChangeDataLandmark',
+                    commandCentre: commandCentre,
+                    glRef: glRef,
+                    dataIdx: nextDataIdx,
+                    landmarkIdx: nextLandmarkIdx,
+                });
+                await loadXtalData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, nextDataIdx, nextLandmarkIdx);
+                dispatch(
+                    {
+                        'type': 'finishedLoading'
+                    }
+                );
+                setIsLoading(false);
+
+        }
+        } 
+        // Otherwise handle moving to next annotation in view
+        else {
+            console.log('New landmark same data!');
+            const nextDataIdx = dataIdx;
+            const nextLandmarkIdx = landmarkIdx + 1;
+            console.log(`Before dispatch landmark idx: ${state.landmarkIdx}`)
+            dispatch(
+                {
+                    type: 'handleChangeDataLandmark',
+                    commandCentre: commandCentre,
+                    glRef: glRef,
+                    dataIdx: nextDataIdx,
+                    landmarkIdx: nextLandmarkIdx,
+                }
+            );
+            console.log(`After dispatch landmark idx: ${state.landmarkIdx}`)
+
+            dispatch(
+                {
+                    'type': 'finishedLoading'
+                }
+            );
+            const activeMol = molecules.moleculeList.filter(
+                (_mol) => { return _mol.molNo == state.activeProteinMol; })[0];
+            console.log(`Centering on mol: ${activeMol}`);
+            await updateCentre(state, nextDataIdx, nextLandmarkIdx, activeMol);
+            setIsLoading(false);
+        }
+        console.log(state);
+        // await updateData(state);
+        // await saveData(state);
+        // console.log(state);
+
+        
     }
-    nextSite();
+    nextLandmark();
 }
-export function handleNextUnviewed(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) {
-    async function nextUnviewed() {
 
-    console.log('Select event unviewed');
-    const nextUnviewedEvents = pandda_inspect_state.data.filter((_record) => {
-        return ((!_record['Viewed']) && (_record[''] > pandda_inspect_state.table_idx));
+export async function handlePreviousLandmark(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) {
+console.log('Select event');
+    async function previousLandmark() {
+        let dataIdx = state.dataIdx;
+        let landmarkIdx = state.landmarkIdx;
+        let landmarks = state.inputData[dataIdx].landmarks;
+        console.log(`dataIDX: ${dataIdx}; landmarkIdx: ${landmarkIdx}; landmarks: ${landmarks}`)
+        console.log('Next landmark function state:');
+        console.log(state);
+        
+        // Handle if moving onto previous data
+        if (typeof landmarks[landmarkIdx-1] === 'undefined') {
+            console.log('Moving to new data!');
+            const previousDataIdx = dataIdx - 1;
+            const previousLandmarkIdx = 1;
+            if (typeof state.inputData[previousDataIdx] === 'undefined') {
+                alert('No more data!');
+                setIsLoading(false);
+            } else {
+                dispatch(
+                {
+                    type: 'handleChangeDataLandmark',
+                    commandCentre: commandCentre,
+                    glRef: glRef,
+                    dataIdx: previousDataIdx,
+                    landmarkIdx: previousLandmarkIdx,
+                });
+                await loadXtalData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, previousDataIdx, previousLandmarkIdx);
+                setIsLoading(false);
+        }
+        } 
+        // Otherwise handle moving to next annotation in view
+        else {
+            console.log('New landmark same data!');
+            const previousDataIdx = dataIdx;
+            const previousLandmarkIdx = landmarkIdx - 1;
+            console.log(`Before dispatch landmark idx: ${state.landmarkIdx}`)
+            dispatch(
+                {
+                    type: 'handleChangeDataLandmark',
+                    commandCentre: commandCentre,
+                    glRef: glRef,
+                    dataIdx: previousDataIdx,
+                    landmarkIdx: previousLandmarkIdx,
+                }
+            );
+            console.log(`After dispatch landmark idx: ${state.landmarkIdx}`)
+
+            dispatch(
+                {
+                    'type': 'finishedLoading'
+                }
+            );
+            const activeMol = molecules.moleculeList.filter(
+                (_mol) => { return _mol.molNo == state.activeProteinMol; })[0];
+            console.log(`Centering on mol: ${activeMol}`);
+            await updateCentre(state, previousDataIdx, previousLandmarkIdx, activeMol);
+            setIsLoading(false);
+        }
+        console.log(state);
     }
-    );
-    console.log(nextUnviewedEvents);
-    if (nextUnviewedEvents.length == 0) {
-        alert('No unviwed events of higher number remain!');
-        setIsLoading(false);
-        return;
-    } 
+    previousLandmark();
+}
 
-    const nextEventIdx = nextUnviewedEvents[0][''];
-    const nextEventData = tableIdxToEvent(nextEventIdx, pandda_inspect_state);
+export async function handleNextData(
+    cootInitialized, glRef, commandCentre, molecules, maps, 
+    coot_dispatch, dispatch, state, setIsLoading) {
+    // Get the next data
+    console.log('Select event');
+    async function nextData() {
+        let dataIdx = state.dataIdx;
+        let landmarkIdx = state.landmarkIdx;
+        let landmarks = state.inputData[dataIdx].landmarks;
+        console.log(`dataIDX: ${dataIdx}; landmarkIdx: ${landmarkIdx}; landmarks: ${landmarks}`)
+        console.log('Next landmark function state:');
+        console.log(state);
+        
+        // Handle if moving onto new data
+        console.log('Moving to new data!');
+        const nextDataIdx = dataIdx + 1;
+        const nextLandmarkIdx = 1;
+        if (typeof state.inputData[nextDataIdx] === 'undefined') {
+            alert('No more data!');
+            setIsLoading(false);
 
-    dispatch(
-        {
-            type: 'handleNextUnviewed',
-            commandCentre: commandCentre,
-            glRef: glRef
-        });
-    await loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, nextEventData);
+        } else {
+            dispatch(
+            {
+                type: 'handleChangeDataLandmark',
+                commandCentre: commandCentre,
+                glRef: glRef,
+                dataIdx: nextDataIdx,
+                landmarkIdx: nextLandmarkIdx,
+            });
+            await loadXtalData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, nextDataIdx, nextLandmarkIdx);
+            setIsLoading(false);
+        }
+        console.log(state);
+        // await updateData(state);
+        // await saveData(state);
+        // console.log(state);
+
+        
+    }
+    nextData();
+}
+
+export async function handlePreviousData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading,) {
+// Get the next data
+    console.log('Select event');
+    async function previousData() {
+        let dataIdx = state.dataIdx;
+        let landmarkIdx = state.landmarkIdx;
+        let landmarks = state.inputData[dataIdx].landmarks;
+        console.log(`dataIDX: ${dataIdx}; landmarkIdx: ${landmarkIdx}; landmarks: ${landmarks}`)
+        console.log('Next landmark function state:');
+        console.log(state);
+        
+        // Handle if moving onto new data
+        console.log('Moving to new data!');
+        const previousDataIdx = dataIdx - 1;
+        const previousLandmarkIdx = 1;
+        if (typeof state.inputData[previousDataIdx] === 'undefined') {
+            alert('No more data!');
+            setIsLoading(false);
+        } else {
+            dispatch(
+            {
+                type: 'handleChangeDataLandmark',
+                commandCentre: commandCentre,
+                glRef: glRef,
+                dataIdx: previousDataIdx,
+                landmarkIdx: previousLandmarkIdx,
+            });
+            await loadXtalData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, previousDataIdx, previousLandmarkIdx);
+            setIsLoading(false);
+        }
+        console.log(state);
+        // await updateData(state);
+        // await saveData(state);
+        // console.log(state);
+
+        
+    }
+    previousData();
+}
+
+export async function handleNextUnviewed(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) {
+    let changed = false;
+    async function nextUnviewed() {
+        for (var key in state.inputData) {
+            if (typeof state.outputData[key] === 'undefined') {
+                let nextDataIdx = key;
+                let nextLandmarkIdx = 1;
+                dispatch(
+                {
+                    type: 'handleChangeDataLandmark',
+                    commandCentre: commandCentre,
+                    glRef: glRef,
+                    dataIdx: nextDataIdx,
+                    landmarkIdx: nextLandmarkIdx,
+                });
+                await loadXtalData(
+                    cootInitialized, glRef, commandCentre, molecules, maps, 
+                    coot_dispatch, dispatch, state, nextDataIdx, nextLandmarkIdx);
+                setIsLoading(false);
+                changed = true;
+            }
+        }
+        if (!changed) {
+            alert('All data processed!');
+        }
     setIsLoading(false);
+
     }
     nextUnviewed();
 }
-export function handleNextUnmodelled(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) {
-    async function nextUnmodelled() {
 
-        const data = pandda_inspect_state.data
-        console.log(data);
 
-        const nextUnviewedEvents = data.filter((_record) => {
-            return ((!_record['Ligand Placed']) && (_record[''] > pandda_inspect_state.table_idx));
-        }
-        );
-        console.log(nextUnviewedEvents);
 
-    if (nextUnviewedEvents.length == 0) {
-        alert('No unmodelled events of higher number remain!');
-        setIsLoading(false);
-        return;
-    }
-    const nextEventIdx = nextUnviewedEvents[0][''];
-    const nextEventData = tableIdxToEvent(nextEventIdx, pandda_inspect_state);
-
-    console.log('Select event unmodelled');
-    dispatch(
-        {
-            type: 'handleNextUnmodelled',
-            commandCentre: commandCentre,
-            glRef: glRef
-        });
-    await loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, nextEventData);
-    setIsLoading(false);
-    }
-    nextUnmodelled();
-}
-export function handleNextEventDontSave(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) {
-    async function nextEventDontSave() {
-        const nextEventIdx = (pandda_inspect_state.table_idx + 1) % pandda_inspect_state.data.length;
-        console.log(`Next event IDX: ${nextEventIdx}`);
-        const nextEventData = tableIdxToEvent(nextEventIdx, pandda_inspect_state);
-        console.log(nextEventData);
-
-        console.log('Select next event without saving');
-        dispatch(
-            {
-                type: 'handleNextEventDontSave',
-                commandCentre: commandCentre,
-                glRef: glRef
-            });
-        await loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, nextEventData);
-        setIsLoading(false);
-    }
-    nextEventDontSave();
-}
-
-export function handleMergeLigand(glRef, commandCentre, dispatch) {
-    console.log('Select event');
-    dispatch(
-        {
-            type: 'handleMergeLigand',
-            commandCentre: commandCentre,
-            glRef: glRef
-        });
-}
-export function handleMoveLigand() {
-    alert('Not Implemented!');
-}
-export function handleNextLigand(dispatch, molecules, pandda_inspect_state) {
-    loadNextLigand(dispatch, molecules, pandda_inspect_state);
-}
-export function handleLoadLigandAutobuild(glRef, commandCentre, molecules, coot_dispatch, dispatch, pandda_inspect_state) {
-    loadLigandAutobuild(glRef, commandCentre, molecules, coot_dispatch, dispatch, pandda_inspect_state);
-}
-export function handleSaveLigand(molecules, pandda_inspect_state) {
-    console.log('Save event');
-    saveModel(molecules, pandda_inspect_state)
-}
-export function handleReloadLigand(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state) {
-    console.log('Select event');
-    loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state);
-}
-export function handleResetLigand() {
-    alert('Not implemented!');
-}
-
-export function handleSetEventComment(dispatch, event: React.ChangeEvent<HTMLInputElement>) {
-    console.log('Set event comment...');
-    async function setEventComment() {
-        dispatch(
-            {
-                type: 'handleSetEventComment',
-                value: (event.target as HTMLInputElement).value
-            });
-        await updateData(dispatch);
-        await updateSiteData(dispatch);
-
-    }
-    setEventComment();
-}
-export function handleSetInteresting(dispatch, pandda_inspect_state, event: React.ChangeEvent<HTMLInputElement>) {
-    console.log('Select event');
-    async function setInteresting() {
-        dispatch(
-            {
-                type: 'handleSetInteresting',
-                value: (event.target as HTMLInputElement).value
-            });
-        await updateData(dispatch);
-        await updateSiteData(dispatch);
-
-        await saveData(pandda_inspect_state);
-        await saveSiteData(pandda_inspect_state);
-
-    }
-    setInteresting();
-}
-export function handleSetPlaced(dispatch, pandda_inspect_state, event: React.ChangeEvent<HTMLInputElement>) {
-    console.log('Select event');
-    async function setPlaced() {
-        dispatch(
-            {
-                type: 'handleSetPlaced',
-                value: (event.target as HTMLInputElement).value
-            });
-        await updateData(dispatch);
-        await updateSiteData(dispatch);
-
-        await saveData(pandda_inspect_state);
-        await saveSiteData(pandda_inspect_state);
-
-    }
-    setPlaced();
-}
-export function handleSetConfidence(dispatch, pandda_inspect_state, event: React.ChangeEvent<HTMLInputElement>) {
-    console.log('set confidence');
-    console.log((event.target as HTMLInputElement).value);
-    async function setConfidence() {
-        dispatch(
-            {
-                type: 'handleSetConfidence',
-                value: (event.target as HTMLInputElement).value
-            });
-        await updateData(dispatch);
-        await updateSiteData(dispatch);
-
-        await saveData(pandda_inspect_state);
-        await saveSiteData(pandda_inspect_state);
-
-    }
-    setConfidence();
-}
-export function handleSetSiteName(dispatch, pandda_inspect_state, event: React.ChangeEvent<HTMLInputElement>) {
-    console.log('Setting site name...');
-    async function setSiteName() {
-        dispatch(
-            {
-                type: 'handleSetSiteName',
-                value: (event.target as HTMLInputElement).value
-            });
-        await updateData(dispatch);
-        await updateSiteData(dispatch);
-
-        // await saveData();
-    }
-    setSiteName();
-}
-export function handleSetSiteComment(dispatch, pandda_inspect_state, event: React.ChangeEvent<HTMLInputElement>) {
-    console.log('Setting site comment...');
-    async function setSiteComment() {
-        dispatch(
-            {
-                type: 'handleSetSiteComment',
-                value: (event.target as HTMLInputElement).value
-            });
-        await updateData(dispatch);
-        await updateSiteData(dispatch);
-
-    }
-    setSiteComment();
-}
-
-export function handleLoadInputMTZ(glRef, commandCentre, coot_dispatch, pandda_inspect_state,) {
-    console.log('Loading input mtz...');
-    const molName = pandda_inspect_state.dtag;
-    const molPath = path.join(pandda_inspect_state.args, 'processed_datasets', pandda_inspect_state.dtag, `${pandda_inspect_state.dtag}-pandda-input.mtz`);
-    console.log(`Loading comparison mol from: ${molPath}`);
-    loadMTZFromPath(commandCentre, glRef, coot_dispatch, molPath, molName, null);
-}
-
-export function handleLoadGroundState(glRef, commandCentre, coot_dispatch, pandda_inspect_state) {
-    console.log('Loading ground state map...');
-    const molName = `${pandda_inspect_state.dtag}_ground_state`;
-    const mapPath = path.join(pandda_inspect_state.args, 'processed_datasets', pandda_inspect_state.dtag, `${pandda_inspect_state.dtag}-ground-state-average-map.native.ccp4`);
-    console.log(`Loading ground state map from: ${mapPath}`);
-    loadMapFromPath(commandCentre, glRef, coot_dispatch, mapPath, molName, null);
-}
-export function handleLoadInputStructure(glRef, commandCentre, coot_dispatch, pandda_inspect_state) {
-    console.log('Loading input structure...');
-    const molName = pandda_inspect_state.dtag;
-    const molPath = path.join(pandda_inspect_state.args, 'processed_datasets', pandda_inspect_state.dtag, `${pandda_inspect_state.dtag}-pandda-input.pdb`);
-    console.log(`Loading comparison mol from: ${molPath}`);
-    loadMoleculeFromPath(commandCentre, glRef, coot_dispatch, molPath, molName, pandda_inspect_state.ligandFiles.get(molName));
-}
-export function handleCreateNewLigand() {
-    alert('Not implemented!');
-}
 
 function handleSetInitialData(dispatch, df) {
     dispatch(
@@ -740,53 +663,10 @@ function handleSetInitialData(dispatch, df) {
         });
 }
 
-function handleSetInitialSiteData(dispatch, df) {
-    dispatch(
-        {
-            type: 'handleSetInitialSiteData',
-            df: df
-        });
-}
-
-export async function getData(dispatch, pandda_inspect_state) {
-    console.log('In effect to get data');
-    const get_data = async function () {
-        const df = await window.electronAPI.data();
-        handleSetInitialData(dispatch, df)
-    };
-    if (pandda_inspect_state.data.length == 0) {
-        console.log('Getting data...');
-        get_data();
-        console.log('got data');
-    }
-}
-
-
-export async function getSiteData(dispatch, pandda_inspect_state) {
-    console.log('In effect to get data');
-    const get_data = async function () {
-        const df = await window.electronAPI.getSiteData();
-        handleSetInitialSiteData(dispatch, df)
-    };
-    if (pandda_inspect_state.data.length == 0) {
-        console.log('Getting data...');
-        get_data();
-        console.log('got data');
-    }
-}
-
-export async function getLigandFiles(dispatch, pandda_inspect_state) {
-    if (pandda_inspect_state.ligandFiles.size == 0) {
-        const ligandFiles = await window.electronAPI.getLigandPaths();
-        console.log(ligandFiles);
-        dispatch({ type: 'handleGetLigandFiles', ligandFiles: ligandFiles });
-    };
-
-}
 
 export async function handleGetArgs(dispatch, pandda_inspect_state) {
     if (pandda_inspect_state.data.length == 0) {
-        const args = await window.electronAPI.args();
+        const args = await window.electronAPI.getArgs();
         dispatch(
             {
                 type: 'handleGetArgs',
@@ -794,3 +674,104 @@ export async function handleGetArgs(dispatch, pandda_inspect_state) {
             });
     }
 }
+
+export async function getInputData(dispatch, state) {
+    if (state.inputData.length == 0) {
+        const inputData = await window.electronAPI.getInputData();
+        dispatch(
+            {
+                type: 'handleGetInputData',
+                inputData: inputData
+            });
+    }
+}
+
+export async function getOutputData(dispatch, pandda_inspect_state) {
+    if (pandda_inspect_state.data.length == 0) {
+        const outputData = await window.electronAPI.getOutputData();
+        dispatch(
+            {
+                type: 'handleGetOutputData',
+                outputData: outputData
+            });
+    }
+}
+
+export async function getInitialState(dispatch, state) {
+    
+    if (state.inputData.length == 0) {
+        const args = await window.electronAPI.getArgs(null);
+        let inputData = await window.electronAPI.getInputData(null);
+        let outputData = await window.electronAPI.getOutputData(null);
+        console.log('Requested data');
+        console.log(args);
+        console.log(inputData);
+        console.log(outputData);
+        dispatch(
+            {
+                type: 'handleGetInitialState',
+                args: args,
+                inputData: inputData,
+                outputData: outputData
+            });
+    }
+
+
+}
+
+export async function handleTruePositive(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) {
+
+        async function _handleTruePositive() {
+        dispatch(
+            {
+                type: 'updateOutputData',
+                dataIdx: state.dataIdx,
+                landmarkIdx: state.landmarkIdx,
+                annotation: 'truePositive'
+            }
+        );
+        await window.electronAPI.saveOutputData({ 
+            dataIdx: state.dataIdx,
+            landmarkIdx: state.landmarkIdx,
+            annotation: 'truePositive' 
+            }
+        );
+        await handleNextLandmark(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading);
+        dispatch(
+            {
+                'type': 'finishedLoading'
+            }
+        );
+    }
+    _handleTruePositive();
+}
+
+export async function handleFalsePositive(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) {
+    async function _handleFalsePositive() {
+        dispatch(
+            {
+                type: 'updateOutputData',
+                dataIdx: state.dataIdx,
+                landmarkIdx: state.landmarkIdx,
+                annotation: 'falsePositive'
+            }
+        );
+        await window.electronAPI.saveOutputData({ 
+            dataIdx: state.dataIdx,
+            landmarkIdx: state.landmarkIdx,
+            annotation: 'falsePositive' 
+            }
+        );
+        await handleNextLandmark(
+            cootInitialized, 
+            glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading);
+        dispatch(
+                {
+                    'type': 'finishedLoading'
+                }
+            );
+        }
+
+    _handleFalsePositive();
+}
+

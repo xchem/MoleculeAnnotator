@@ -15,36 +15,18 @@ import { initialPanDDAInspectState } from './PanDDA2Constants';
 import { PanDDAInspect } from './PanDDAInspect';
 import { panDDAInspectReducer } from './PanDDAInspectReducer'
 import {
-  handleSelectEvent,
-  handleNextEvent,
-  handlePreviousEvent,
-  handlePreviousSite,
-  handleNextSite,
+  handleNextLandmark,
+  handlePreviousLandmark,
+  handlePreviousData,
+  handleNextData,
   handleNextUnviewed,
-  handleNextUnmodelled,
-  handleNextEventDontSave,
-  handleMergeLigand,
-  handleMoveLigand,
-  handleNextLigand,
-  handleLoadLigandAutobuild,
-  handleSaveLigand,
-  handleReloadLigand,
-  handleResetLigand,
-  handleSetEventComment,
-  handleSetInteresting,
-  handleSetPlaced,
-  handleSetConfidence,
-  handleSetSiteName,
-  handleSetSiteComment,
-  handleLoadInputMTZ,
-  handleLoadGroundState,
-  handleLoadInputStructure,
-  handleCreateNewLigand,
-  getLigandFiles,
-  getData,
-  getSiteData,
+  getInputData,
+  getOutputData,
   handleGetArgs,
-  loadEventData
+  loadXtalData,
+  handleFalsePositive,
+  handleTruePositive,
+  getInitialState
 } from './PanDDAInspectEffects'
 
 
@@ -62,42 +44,25 @@ const MyMoorhenContainer = (props) => {
 
 function MoorhenController() {
   // Moorhen wrapper containing pandda inspect controls
-  console.log(initialPanDDAInspectState);
+  // console.log(initialPanDDAInspectState);
 
   // Core react state
-  const [pandda_inspect_state, dispatch] = useImmerReducer(panDDAInspectReducer, initialPanDDAInspectState);
+  const [state, dispatch] = useImmerReducer(panDDAInspectReducer, initialPanDDAInspectState);
 
-  // Effect to get arguments to electron app
+  // Effect to get outputdata
   useEffect(
     () => {
-      handleGetArgs(dispatch, pandda_inspect_state);
+      getInitialState(dispatch, state);
     }, []
   )
 
-  // Effect to get ligand information
-  useEffect(
-    () => {
-      getLigandFiles(dispatch, pandda_inspect_state);
-    }, []
-  )
+  // console.log('pandda inspect data');
+  // console.log(state.dataIdx);
+  // console.log(state.landmarkIdx);
+  // console.log(state.inputData);
+  // console.log(state.outputData)
 
-  // Effect to get pandda table data
-  useEffect(
-    () => {
-      getData(dispatch, pandda_inspect_state);
-    }, []
-  )
-
-  // Effect to get pandda site table data
-  useEffect(
-    () => {
-      getSiteData(dispatch, pandda_inspect_state);
-    }, []
-  )
-
-  console.log('pandda inspect data');
-  console.log(pandda_inspect_state.data);
-
+  // Setup moorhen variables that event handlers will need
   const glRef = useRef(null);
   const timeCapsuleRef = useRef(null);
   const commandCentre = useRef(null);
@@ -111,54 +76,44 @@ function MoorhenController() {
   const maps = useSelector((state: any) => state.maps);
   const coot_dispatch = useDispatch();
 
+  // Define the vent handlers
+  const pandda_inspect_event_handlers = {
+    handleNextLandmark: (setIsLoading) => { handleNextLandmark(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) },
+    handlePreviousLandmark: (setIsLoading) => { handlePreviousLandmark(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) },
+    handlePreviousData: (setIsLoading) => { handlePreviousData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) },
+    handleNextData: (setIsLoading) => { handleNextData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) },
+    handleNextUnviewed: (setIsLoading) => { handleNextUnviewed(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) },
 
-  const pandda_inspect_event_handlers: PanDDAInspectEventHandlers = {
-    handleSelectEvent: (event, setIsLoading) => { handleSelectEvent(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading, event) },
-    handleNextEvent: (setIsLoading) => { handleNextEvent(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) },
-    handlePreviousEvent: (setIsLoading) => { handlePreviousEvent(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) },
-    handlePreviousSite: (setIsLoading) => { handlePreviousSite(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) },
-    handleNextSite: (setIsLoading) => { handleNextSite(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) },
-    handleNextUnviewed: (setIsLoading) => { handleNextUnviewed(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) },
-    handleNextUnmodelled: (setIsLoading) => { handleNextUnmodelled(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) },
-    handleNextEventDontSave: (setIsLoading) => { handleNextEventDontSave(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state, setIsLoading) },
+    handleFalsePositive: (setIsLoading) => { handleFalsePositive(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) },
+    handleTruePositive: (setIsLoading) => { handleTruePositive(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) },
 
-    handleMergeLigand: () => { handleMergeLigand(glRef, commandCentre, dispatch) },
-    handleMoveLigand: () => { handleMoveLigand() },
-    handleNextLigand: () => { handleNextLigand(dispatch, molecules, pandda_inspect_state) },
-    handleLoadLigandAutobuild: () => {handleLoadLigandAutobuild(glRef, commandCentre, molecules, coot_dispatch, dispatch, pandda_inspect_state)},
-    handleSaveLigand: () => { handleSaveLigand(molecules, pandda_inspect_state) },
-    handleReloadLigand: () => { handleReloadLigand(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state) },
-    handleResetLigand: () => { handleResetLigand() },
-
-    handleSetEventComment: (event) => { handleSetEventComment(dispatch, event) },
-    handleSetInteresting: (event) => { handleSetInteresting(dispatch, pandda_inspect_state, event) },
-    handleSetPlaced: (event) => { handleSetPlaced(dispatch, pandda_inspect_state, event) },
-    handleSetConfidence: (event) => { handleSetConfidence(dispatch, pandda_inspect_state, event) },
-    handleSetSiteName: (event) => { handleSetSiteName(dispatch, pandda_inspect_state, event) },
-    handleSetSiteComment: (event) => { handleSetSiteComment(dispatch, pandda_inspect_state, event) },
-
-    handleLoadInputMTZ: () => { handleLoadInputMTZ(glRef, commandCentre, coot_dispatch, pandda_inspect_state) },
-    handleLoadGroundState: () => { handleLoadGroundState(glRef, commandCentre, coot_dispatch, pandda_inspect_state) },
-    handleLoadInputStructure: () => { handleLoadInputStructure(glRef, commandCentre, coot_dispatch, pandda_inspect_state) },
-    handleCreateNewLigand: () => { handleCreateNewLigand() },
   };
 
   // Effect to load events
   useEffect(
     () => {
-      loadEventData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, pandda_inspect_state);
+      loadXtalData(
+        cootInitialized, 
+        glRef, 
+        commandCentre, 
+        molecules, 
+        maps,
+        coot_dispatch, 
+        dispatch, 
+        state,
+        state.dataIdx,
+        state.landmarkIdx
+      );
     },
-    // [cootInitialized, pandda_inspect_state.table_idx, pandda_inspect_state.ligandFiles]
     [cootInitialized]
-
   )
 
 
-  console.log('Getting initial pandda inspect state');
-  console.log(pandda_inspect_state);
+  // console.log('Getting initial pandda inspect state');
+  // console.log(state);
 
-  console.log('Getting initial pandda handlers');
-  console.log(pandda_inspect_event_handlers);
+  // console.log('Getting initial pandda handlers');
+  // console.log(pandda_inspect_event_handlers);
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -168,13 +123,11 @@ function MoorhenController() {
         </Grid>
         <Grid size={2}>
           <PanDDAInspect
-            state={pandda_inspect_state}
+            state={state}
             handlers={pandda_inspect_event_handlers}
           ></PanDDAInspect>
-
         </Grid>
       </Grid>
-
     </Box>
   );
 

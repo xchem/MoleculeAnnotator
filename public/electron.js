@@ -8,7 +8,7 @@ const express = require('express');
 const process = require('process');
 const fs = require("fs");
 
-
+const { hideBin } = require('yargs/helpers');
 const isDev = require("electron-is-dev");
 
 const { ipcMain } = require('electron');
@@ -16,93 +16,14 @@ const yargs = require('yargs');
 const { format, writeToPath } = require('@fast-csv/format');
 const { parse } = require('fast-csv');
 const { pipeline } = require('node:stream/promises');
+const {Sequelize, DataTypes} = require("sequelize")
 
+
+// const { something } = require('./notafile');
 const { handlerMap } = require('./handlers')
+const { loadData, getDB, getOutputData } = require('./initialization')
 
 
-let panddaInspectColumns = [
-  'dtag',
-  'event_idx',
-  'bdc',
-  'cluster_size',
-  'global_correlation_to_average_map',
-  'global_correlation_to_mean_map',
-  'local_correlation_to_average_map',
-  'local_correlation_to_mean_map',
-  'site_idx',
-  'x',
-  'y',
-  'z',
-  'z_mean',
-  'z_peak',
-  'applied_b_factor_scaling',
-  'high_resolution',
-  'low_resolution',
-  'r_free',
-  'r_work',
-  'analysed_resolution',
-  'map_uncertainty',
-  'analysed',
-  'interesting',
-  'exclude_from_z_map_analysis',
-  'exclude_from_characterisation',
-  '1-BDC',
-  'Interesting',
-  'Ligand Placed',
-  'Ligand Confidence',
-  'Comment',
-  'Viewed'
-];
-
-let panddaInspectColumnTypes = {
-    'dtag': String,
-    'event_idx': parseInt,
-    'bdc': Number,
-    'cluster_size': parseInt,
-    'global_correlation_to_average_map': Number,
-    'global_correlation_to_mean_map': Number,
-    'local_correlation_to_average_map': Number,
-    'local_correlation_to_mean_map': Number,
-    'site_idx': parseInt,
-    'x': Number,
-    'y': Number,
-    'z': Number,
-    'z_mean': Number,
-    'z_peak':Number,
-    'applied_b_factor_scaling': Number,
-    'high_resolution': Number,
-    'low_resolution': Number,
-    'r_free': Number,
-    'r_work': Number,
-    'analysed_resolution': Number,
-    'map_uncertainty': Number,
-    'analysed': Boolean,
-    'interesting': Boolean,
-    'exclude_from_z_map_analysis': Boolean,
-    'exclude_from_characterisation': Boolean,
-    '1-BDC': Number,
-    'Interesting': String,
-    'Ligand Placed': String,
-    'Ligand Confidence': String,
-    'Comment': String,
-    'Viewed': String
-};
-
-
-let panddaInspectSitesColumns = [
-  'site_idx',
-  'centroid',
-  'Name',
-  'Comment'
-
-];
-
-let panddaInspectSitesColumnTypes = {
-  'site_idx': parseInt,
-  'centroid': (_x) => {return JSON.parse(_x.replace("(", "").replace(")", "").replace(/^/, '[').replace(/$/, ']'))},
-  'Name': String,
-  'Comment': String
-};
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
 if (require("electron-squirrel-startup")) {
   app.quit();
@@ -118,8 +39,7 @@ if (isDev) {
 }
 
 console.log('creating window');
-
-
+console.log(handlerMap);
 
 function createWindow() {
   // Create the browser window.
@@ -129,23 +49,15 @@ function createWindow() {
     icon: path.join(__dirname, "..", "src", "icons", "png", "128x128.png"),
     webPreferences: {
       nodeIntegration: true,
+      nodeIntegrationInWorker: true,
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
-      webSecurity: false
+      webSecurity: false,
 
     }
 
   });
-  // win.webContents.openDevTools();
   console.log(path.join(__dirname, 'preload.js'));
-
-
-
-  //   if (process.argv.length > 2) {
-  //     win.loadURL(process.argv[2]);
-  //   } else if (process.argv.length > 1 && process.argv[1] !== "--no-sandbox") {
-  //     win.loadURL(process.argv[1]);
-  //   } else {
 
   let server;
 
@@ -185,10 +97,6 @@ function createWindow() {
     win.loadURL("http://localhost:9999");
   }
 
-
-
-
-
   // Open the DevTools.
   if (isDev) {
     win.webContents.openDevTools({ mode: "detach" });
@@ -202,253 +110,65 @@ function createWindow() {
 app.whenReady().then(
   async () => {
     // Parse the command line used to launch the program for a file path
-    const args = yargs(process.argv.slice(1)).parse()._[0];
+    const argv = yargs(hideBin(process.argv)).parse();
+    console.log('Arguments:');
+    console.log(argv);
 
     // Define and look for input and output csv files 
-    const pandaAnalyseEventsPath = path.join(args, 'analyses', 'pandda_analyse_events.csv');
-    const pandaInspectEventsPath = path.join(args, 'analyses', 'pandda_inspect_events.csv');
-    const pandaAnalyseSitesPath = path.join(args, 'analyses', 'pandda_analyse_sites.csv');
-    const pandaInspectSitesPath = path.join(args, 'analyses', 'pandda_inspect_sites.csv');
-    let csvPath = pandaAnalyseEventsPath;
-    let siteCSVPath = pandaAnalyseSitesPath;
-    if (fs.existsSync(pandaInspectEventsPath)) {
-      csvPath = pandaInspectEventsPath;
-      siteCSVPath = pandaInspectSitesPath;
-    }
+    const inputPath = argv.in;
+    const outputPath = argv.out;
 
-    console.log(csvPath);
-    // const df = pd.readCsv(csvPath);
+    console.log('Arguments:');
+    console.log(inputPath);
+    console.log(outputPath);
 
-    // Read the input table
-    const eventTableStream = fs.createReadStream(csvPath);
-    const eventTable = []
-    const eventTableParseStream = parse({ headers: true })
-      .on('error', error => console.error(error))
-      .on('data', row => eventTable.push(row))
-      .on('end', (rowCount) => console.log(`Parsed ${rowCount} rows`));
-    // stream.write(siteDataFrameString);
-    const finishedEventTableStream = await pipeline(eventTableStream, eventTableParseStream)
+    let inputData = loadData(inputPath);
+    let db = getDB(outputPath);
+    let outputData = getOutputData(db);
 
-    // Type the input data
-    for (var eventTableIndex in eventTable) {
-      eventTable[eventTableIndex][''] = parseInt(eventTableIndex);
-      for (_property in eventTable[eventTableIndex]) {
-        if (_property in panddaInspectColumnTypes) {
-          eventTable[eventTableIndex][_property] = panddaInspectColumnTypes[_property](eventTable[eventTableIndex][_property]);
-        }
-      } 
-      //eventTable[eventTableIndex]['site_idx'] = parseInt(eventTable[eventTableIndex]['site_idx']);
-    }
 
+    console.log('Data:');    
+    console.log(inputData);
+    console.log(outputData);
+    
     return {
-      args: args,
-      data: eventTable,
-      siteData: siteDataFrame
+      args: argv,
+      inputData: inputData,
+      outputData: outputData,
+      db:db
     }
   }
 
   // Once the input data is parsed, register the handlers for controlling the backend from the frontend
   // 
 ).then((obj) => {
-  const df = obj.data;
-  const siteData = obj.siteData;
+  const inputData = obj.inputData;
+  let outputData = obj.outputData;
   const args = obj.args;
+  let db = obj.db;
 
-  // const loadURL = serve({ directory: args._[0] });
-  // loadURL(mainWindow);
+  let state = {
+    args: args,
+    inputData: inputData,
+    outputData: outputData,
+    db: db
+  };
 
-  for (const [key, value] of Object.entries(object)) {
-    ipcMain.handle(key, value)
+  console.log('Registering handlers...');
+  for (const [key, handler] of Object.entries(handlerMap)) {
+    ipcMain.handle(key, async (event, action) => {return await handler(event, action, state)})
   }
-
-  // ipcMain.handle('get-args', async (event,) => {
-    
-
-  // })
-
-  ipcMain.handle('get-data', async (event,) => {
-    return df
-  })
-
-  ipcMain.handle('get-site-data', async (event,) => {
-    return siteData
-  })
-
-  ipcMain.handle('save-data', async (event, action) => {
-    console.log('Saving data...');
-    console.log(action.data);
-    let data = [];
-    for (var index in action.data) {
-      record = action.data[index];
-      newRecord = [
-        record['dtag'],
-        record['event_idx'],
-        record['bdc'],
-        record['cluster_size'],
-        record['global_correlation_to_average_map'],
-        record['global_correlation_to_mean_map'],
-        record['local_correlation_to_average_map'],
-        record['local_correlation_to_mean_map'],
-        record['site_idx'],
-        record['x'],
-        record['y'],
-        record['z'],
-        record['z_mean'],
-        record['z_peak'],
-        record['applied_b_factor_scaling'],
-        record['high_resolution'],
-        record['low_resolution'],
-        record['r_free'],
-        record['r_work'],
-        record['analysed_resolution'],
-        record['map_uncertainty'],
-        record['analysed'],
-        record['interesting'],
-        record['exclude_from_z_map_analysis'],
-        record['exclude_from_characterisation'],
-        record['1-BDC'],
-        record['Interesting'],
-        record['Ligand Placed'],
-        record['Ligand Confidence'],
-        record['Comment'],
-        record['Viewed']
-      ];
-      data.push(newRecord);
-    }
-    console.log(data);
-    // new_df = pd.DataFrame(data, columns = panddaInspectColumns);
-    // console.log(new_df);
-    // new_df.toCsv();
-
-    await writeToPath(
-      path.join(args, 'analyses', 'pandda_inspect_events.csv'),
-      data,
-      { headers: panddaInspectColumns }
-    );
-  })
-
-  ipcMain.handle('save-site-data', async (event, action) => {
-    console.log('Saving data...');
-    console.log(action.data);
-    let data = [];
-    for (var index in action.data) {
-      record = action.data[index];
-      newRecord = [
-        record['site_idx'],
-        `(${record['centroid'][0]},${record['centroid'][1]},${record['centroid'][2]})`,
-        record['Name'],
-        record['Comment'],
-      ];
-      data.push(newRecord);
-    }
-    console.log(data);
-    // new_df = pd.DataFrame(data, columns = panddaInspectColumns);
-    // console.log(new_df);
-    // new_df.toCsv();
-
-    await writeToPath(
-      path.join(args, 'analyses', 'pandda_inspect_sites.csv'),
-      data,
-      { headers: panddaInspectSitesColumns }
-    );
-  })
-
-  ipcMain.handle('get-mol', async (event, action) => {
-    // const newMolecule = new MoorhenMolecule(commandCentre, glRef);
-
-    // Load molecule into coot instance and draw it using "bonds"
-    console.log(action)
-    console.log(`pandda_dir is ${action.pandda_dir}`);
-    console.log(action.pandda_dir);
-    console.log(action.dtag);
-    console.log(action.event);
-    const mol_path = path.join(action.pandda_dir, 'processed_datasets', action.dtag, 'modelled_structures', `${action.dtag}-pandda-model.pdb`);
-    const data = fs.readFileSync(mol_path);
-    console.log(data);
-
-    return data;
-
-  })
-
-  ipcMain.handle('get-file-from-path', async (event, action) => {
-    // const newMolecule = new MoorhenMolecule(commandCentre, glRef);
-
-    // Load molecule into coot instance and draw it using "bonds"
-    // const mol_path = path.join(action.pandda_dir, 'processed_datasets', action.dtag, 'modelled_structures', `${action.dtag}-pandda-model.pdb`);
-    if (fs.existsSync(action.path)) {
-      const data = fs.readFileSync(action.path);
-      // console.log(data);
-
-      return data;
-    } else {
-      console.log(`No such path ${action.path}`);
-      return null;
-    }
-  })
-
-  ipcMain.handle('save-model', async (event, action) => {
-    // const newMolecule = new MoorhenMolecule(commandCentre, glRef);
-
-    // Load molecule into coot instance and draw it using "bonds"
-    // const mol_path = path.join(action.pandda_dir, 'processed_datasets', action.dtag, 'modelled_structures', `${action.dtag}-pandda-model.pdb`);
-    // const data = fs.readFileSync(action.path);
-    fs.writeFileSync(action.path, action.pdb, {
-      flag: "w"
-    })
-    // console.log(data); 
-  })
-
-  ipcMain.handle('get-ligand-paths', async (event,) => {
-    // const newMolecule = new MoorhenMolecule(commandCentre, glRef);
-    console.log('Getting ligand files...');
-    const dtagDirs = fs.readdirSync(path.join(args, 'processed_datasets'));
-    const ligandFiles = new Map(
-      dtagDirs.map((_dtagDir) => {
-        try {
-          dtagLigandFiles = fs.readdirSync(path.join(args, 'processed_datasets', _dtagDir, 'ligand_files')).map(
-            (_ligandFile) => { return path.join(args, 'processed_datasets', _dtagDir, 'ligand_files', _ligandFile) }
-          ).filter(
-            (_ligandFile) => { console.log(_ligandFile); return path.extname(_ligandFile) == '.cif'; }
-          );
-        } catch (error) {
-          console.log(error);
-          dtagLigandFiles = [];
-        }
-        return [path.basename(_dtagDir), dtagLigandFiles];
-
-      }
-      )
-    );
-    console.log(ligandFiles);
-
-    return ligandFiles;
-  })
+  // handlerMap['test-write-database'](null, null, state);
 
   console.log('creating window');
 
   createWindow()
   console.log('created window');
 
-  // app.on('ready', async () => {
-  //   protocol.registerFileProtocol('app', (request, callback) => {
-  //     const url = request.url.replace('app://', '')
-  //     try {
-  //       return callback(url)
-  //     }
-  //     catch (error) {
-  //       console.error(error)
-  //       return callback(404)
-  //     }
-  //   })
-  // }
-  // )
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
-
-
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

@@ -88,31 +88,13 @@ export type panddaInspectColumnTypes = [
     boolean
 ];
 
-export const initialPanDDAInspectState: PanDDAInspectState = {
-    table_idx: 0,
-    dtag: 'BAZ2BA-x000',
-    event_idx: 1,
-    site: 1,
-    bdc: 0.0,
-    x: 0.0,
-    y: 0.0,
-    z: 0.0,
-    z_blob_peak: 0.0,
-    z_blob_size: 0.0,
-    resolution: 0.0,
-    map_uncertainty: 0.0,
-    r_work: 0.0,
-    r_free: 0.0,
-    event_comment: '',
-    event_interesting: EventInteresting.No,
-    ligand_placed: LigandPlaced.No,
-    ligand_confidence: LigandConfidence.Low,
-    site_name: '',
-    site_comment: '',
-    data: [],
-    siteData: [],
+export const initialPanDDAInspectState = {
+    dataIdx: 1,
+    landmarkIdx: 1,
+    annotation: '',
+    inputData: [],
+    outputData: [],
     args: {},
-    ligandFiles: new Map(),
     activeProteinMol: null,
     activeLigandMol: null,
     loading: false

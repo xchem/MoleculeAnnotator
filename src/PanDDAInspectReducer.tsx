@@ -35,24 +35,50 @@ export function panDDAInspectReducer(draft, action) {
 
         case 'handleSetInitialData': {
             console.log('Setting initial data');
-            draft.data = action.df;
+            // Get the first input annotation without an output annotation
+            
+            draft.data = action.inputData;
             const record = action.df[0];
             updateEvent(draft, record);
             console.log('Set initial data');
             break;
         }
-        case 'handleSetInitialSiteData': {
-            console.log('Setting initial data');
-            draft.siteData = action.df;
-            const record = action.df[0];
-            updateSite(draft, record);
-            console.log('Set initial data');
-            break;
-        }
+
         case 'handleGetArgs': {
             console.log('Setting args');
             draft.args = action.args;
             console.log('Set args');
+            break;
+        }
+        case 'handleGetInputData': {
+            console.log('Setting args');
+            draft.inputData = action.inputData;
+            console.log('Set InputData');
+            break;
+        }
+        case 'handleGetOutputData': {
+            console.log('Setting args');
+            draft.outputData = action.outputData;
+
+
+            console.log('Set outputData');
+            break;
+        }
+        case 'handleGetInitialState': {
+            draft.args = action.args;
+            draft.inputData = action.inputData;
+            draft.outputData = action.outputData;
+            console.log('Handling set initial state');
+            console.log(action.args);
+            console.log(action.inputData);
+            console.log(action.outputData);
+
+            for (let i = 1; i < action.inputData.length; i += 1) {
+                if (typeof action.outputData[i] === 'undefined') {
+                    draft.dataIdx = i;
+                    draft.landmarkIdx = 1;
+                }
+            }
             break;
         }
         case 'handleGetLigandFiles': {
@@ -105,119 +131,23 @@ export function panDDAInspectReducer(draft, action) {
             updateSite(draft, siteRecord);
             break;
         }
-        case 'handleNextEvent': {
-            console.log(`Next event from ${draft.table_idx}...`);
-            console.log(`loading status: ${draft.loading}`);
-            if (draft.loading == true) {
-                console.log('Still loading data! Skipping!');
-                break;
-            } else {
-                console.log('Ready to begin loading new data!');
-            }
+        case 'handleChangeDataLandmark': {
+            // console.log(`Next event from ${draft.table_idx}...`);
+            // console.log(`loading status: ${draft.loading}`);
+            // if (draft.loading == true) {
+            //     console.log('Still loading data! Skipping!');
+            //     break;
+            // } else {
+            //     console.log('Ready to begin loading new data!');
+            // }
 
-            let new_index = 0;
-            if (draft.table_idx == (draft.data.length - 1)) {
-                new_index = 0;
-            } else {
-                new_index = draft.table_idx + 1;
-            }
-            console.log(`Next event is ${new_index}...`);
-
-            const record = draft.data[new_index];
-            updateEvent(draft, record);
-            const siteRecord = draft.siteData.filter((_siteRecord) => { return (parseInt(_siteRecord.site_idx) == record.site_idx) })[0];
-            console.log(`site data: ${siteRecord}`)
-            updateSite(draft, siteRecord);
-            draft.table_idx = new_index;
-
+            draft.dataIdx = action.dataIdx;
+            draft.landmarkIdx = action.landmarkIdx;
             draft.loading = true;
 
             break;
         }
-        case 'handlePreviousEvent': {
-            console.log(`Previous event from ${draft.table_idx}...`);
-            let new_index = 0;
-            if (draft.table_idx == 0) {
-                new_index = (draft.data.length - 1);
-            } else {
-                new_index = draft.table_idx - 1;
-            }
-            console.log(`Previous event is ${new_index}...`);
 
-            const record = draft.data[new_index];
-            updateEvent(draft, record);
-            const siteRecord = draft.siteData.filter((_siteRecord) => { return (parseInt(_siteRecord.site_idx) == record.site_idx) })[0];
-            updateSite(draft, siteRecord);
-            draft.table_idx = new_index;
-
-            break;
-        }
-        case 'handleLoadEvent': {
-            console.log('Loading Event');
-            console.log(action);
-            if (action.data.length == 0) {
-                break;
-            }
-            else {
-                console.log(action.data)
-                const record = action.data[action.idx];
-                updateEvent(draft, record);
-                const siteRecord = draft.siteData.filter((_siteRecord) => { return (parseInt(_siteRecord.site_idx) == record.site_idx) })[0];
-                updateSite(draft, siteRecord);
-                draft.table_idx = action.idx;
-                console.log('Loaded initial Event');
-                break;
-            }
-        }
-        case 'handleNextSite': {
-            const siteNums = draft.data.map((_record) => { return _record.site_idx; });
-            console.log(siteNums);
-            const highestSiteNum = Math.max(...siteNums);
-            console.log(highestSiteNum);
-            console.log(`Original site: ${draft.site}`);
-            let newSite = 0;
-            if (draft.site == highestSiteNum) {
-                newSite = 0;
-            } else {
-                newSite = draft.site + 1;
-            }
-            console.log(original(draft.data));
-            const siteRecords = draft.data.filter((_record) => { return (_record.site_idx == newSite); });
-            console.log(siteRecords);
-            const siteIndexes = siteRecords.map((_record) => { return _record['']; });
-            console.log(siteIndexes);
-            const lowestTableNumInSite = Math.min(...siteIndexes);
-            console.log(`New index is: ${lowestTableNumInSite}...`);
-            const record = draft.data[lowestTableNumInSite];
-            updateEvent(draft, record);
-            const siteRecord = draft.siteData.filter((_siteRecord) => { return (parseInt(_siteRecord.site_idx) == record.site_idx) })[0];
-            updateSite(draft, siteRecord);
-            draft.table_idx = lowestTableNumInSite;
-            break;
-        }
-        case 'handlePreviousSite': {
-            const siteNums = draft.data.map((_record) => { return _record.site_idx; });
-            const highestSiteNum = Math.max(...siteNums);
-            let newSite = 0;
-            if (draft.site == 0) {
-                newSite = highestSiteNum;
-            } else {
-                newSite = draft.site - 1;
-            }
-            const siteRecords = draft.data.filter((_record) => { return (_record.site_idx == newSite); });
-            console.log(siteRecords);
-            const siteIndexes = siteRecords.map((_record) => { return _record['']; });
-            console.log(siteIndexes);
-            const lowestTableNumInSite = Math.min(...siteIndexes);
-            console.log(`New index is: ${lowestTableNumInSite}...`);
-            const record = draft.data[lowestTableNumInSite];
-            updateEvent(draft, record);
-            const siteRecord = draft.siteData.filter((_siteRecord) => { return (parseInt(_siteRecord.site_idx) == record.site_idx) })[0];
-            updateSite(draft, siteRecord);
-            draft.table_idx = lowestTableNumInSite;
-
-            break;
-        }
         case 'handleNextUnviewed': {
             const data = original(draft.data);
             console.log(data);
@@ -284,23 +214,22 @@ export function panDDAInspectReducer(draft, action) {
 
             break;
         }
-        case 'handleMergeLigand': {
 
-            console.log(`Merging ligand...`);
-            draft.activeLigandMol = null;
-            alert('Ligand merged!');
-            break;
-        }
-        case 'handleSaveLigand': {
-            console.log(`Saving model...`);
-            alert('Ligand saved!');
-            break;
-        }
 
         // Model control
 
 
         // Annotation
+
+        case 'handleSetEventComment': {
+
+            if ((typeof action.value) != undefined) {
+                draft.event_comment = action.value;
+            }
+            break;
+        }
+
+
         case 'handleSetEventComment': {
 
             if ((typeof action.value) != undefined) {
@@ -351,6 +280,26 @@ export function panDDAInspectReducer(draft, action) {
         case 'finishedLoading': {
             console.log('Finished loading!');
             draft.loading = false;
+            break;
+        }
+
+        case 'updateOutputData': {
+            if (draft.loading == true) {
+                console.log('Still loading data! Skipping!');
+                break;
+            } else {
+                console.log('Ready to begin loading new data!');
+            }
+
+            draft.dataIdx = action.dataIdx;
+            draft.landmarkIdx = action.landmarkIdx;
+            draft.loading = true;
+            if (typeof draft.outputData[action.dataIdx] === 'undefined') {
+                draft.outputData[action.dataIdx] = {}
+            }
+            draft.outputData[action.dataIdx][action.landmarkIdx] = action.annotation
+
+
             break;
         }
 
