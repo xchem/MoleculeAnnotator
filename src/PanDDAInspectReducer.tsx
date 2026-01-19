@@ -73,12 +73,14 @@ export function panDDAInspectReducer(draft, action) {
             console.log(action.inputData);
             console.log(action.outputData);
 
-            for (let i = 1; i < action.inputData.length; i += 1) {
-                if (typeof action.outputData[i] === 'undefined') {
-                    draft.dataIdx = i;
-                    draft.landmarkIdx = 1;
-                }
-            }
+            // for (let i = 1; i < action.inputData.length; i += 1) {
+            //     if (typeof action.outputData[i] === 'undefined') {
+            //         draft.dataIdx = i;
+            //         draft.landmarkIdx = 1;
+            //     }
+            // }
+            draft.dataIdx = 1;
+            draft.landmarkIdx = 1;
             break;
         }
         case 'handleGetLigandFiles': {
@@ -301,6 +303,19 @@ export function panDDAInspectReducer(draft, action) {
 
 
             break;
+        }
+
+        case 'unloadData': {
+            delete draft.nextMoleculeData[action.mol_path] ;
+            delete draft.nextXMapData[action.map_path] ;
+            break;
+        }
+
+        case 'preloadData': {
+            draft.nextMoleculeData[action.molPath] = action.molDataFuture;
+            draft.nextXMapData[action.mapPath] = action.xmapDataFuture;
+            break;
+
         }
 
         // Misc

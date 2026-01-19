@@ -100,6 +100,77 @@ async function loadMoleculeFromPath(commandCentre, glRef, dispatch, mol_path, mo
 
 }
 
+export async function loadMoleculeData(commandCentre, glRef, dispatch, mol_path, cifs) {
+
+        console.log(`Getting data from: ${mol_path}`)
+
+        const data = await window.electronAPI.getFileFromPath({ path: mol_path });
+        console.log(data);
+
+        if (data == null) {
+            return null;
+        }
+
+        const chunkSize = 65536
+        let pdbStr: string = ""
+        for (let i = 0; i < data.length; i += chunkSize) {
+            const chunk = data.slice(i, i + chunkSize);
+            pdbStr += String.fromCharCode.apply(null, chunk);
+        }
+        console.log(pdbStr);
+        console.log(commandCentre);
+        console.log(glRef);
+        console.log('await load molecule from string...');
+
+        return pdbStr;
+}
+
+export async function loadMoleculeFromData(commandCentre, glRef, dispatch, mol_data, mol_name, cifs) {
+
+    if (path && mol_name) {
+
+        const newMolecule = new MoorhenMolecule(commandCentre, glRef);
+        
+        try {
+            await newMolecule.loadToCootFromString(mol_data, mol_name);
+        } catch (error) {
+            throw error;
+        }
+        console.log(newMolecule);
+
+        console.log('Adding ligands...')
+        if (cifs.length > 0) {
+            for (const _cifFilePathIndex in cifs) {
+                console.log(`Loading cif from ${cifs[_cifFilePathIndex]}`);
+                const ligandData = await window.electronAPI.getFileFromPath({ path: cifs[_cifFilePathIndex] });
+                console.log(ligandData);
+                const chunkSize = 65536
+                let ligandString: string = ""
+                for (let i = 0; i < ligandData.length; i += chunkSize) {
+                    const chunk = ligandData.slice(i, i + chunkSize);
+                    ligandString += String.fromCharCode.apply(null, chunk);
+                }
+                console.log(ligandString);
+                await newMolecule.addDict(ligandString)
+            };
+        }
+
+        console.log(newMolecule);
+
+        console.log('await draw molecule...');
+        await newMolecule.fetchIfDirtyAndDraw('CBs');
+
+        // Dispatch the new molecule to Moorhen
+        console.log('await dispatch molecule...');
+
+        await dispatch(addMolecule(newMolecule));
+
+        return newMolecule;
+
+    }
+
+}
+
 async function loadMapFromPath(commandCentre, glRef, dispatch, map_path, map_name, ) {
 
     if (path && map_name) {
@@ -128,6 +199,81 @@ async function loadMapFromPath(commandCentre, glRef, dispatch, map_path, map_nam
     }
 
 }
+
+export async function loadMTZData(commandCentre, glRef, dispatch, map_path, coord) {
+        const data = await window.electronAPI.getFileFromPath({ path: map_path });
+        console.log(data);
+        const newMap = new MoorhenMap(commandCentre, glRef);
+
+        for (var index in structureFactors) {
+            try {
+                console.log(`Trying to open mtz with ${structureFactors[index].f} ${structureFactors[index].phi}`);
+                const selectedColumns = { 
+                    F: structureFactors[index].f, 
+                    PHI: structureFactors[index].phi, 
+                    Fobs: null, 
+                    SigFobs: null, 
+                    FreeR: null, 
+                    isDifference: false, 
+                    useWeight: false, 
+                    calcStructFact: false 
+                }
+                await newMap.loadToCootFromMtzData(data, 'map_name', selectedColumns);
+                console.log(newMap);
+                break;
+            }
+            catch (error) {
+                console.log(error);
+            }
+        }
+        return newMap;
+
+}
+
+export async function loadMTZFromData(commandCentre, glRef, dispatch, newMap, map_name, coord) {
+
+    // const newMap = new MoorhenMap(commandCentre, glRef);
+
+    // console.log('await load map...');
+    // for (var index in structureFactors) {
+    //     try {
+    //         console.log(`Trying to open mtz with ${structureFactors[index].f} ${structureFactors[index].phi}`);
+    //         const selectedColumns = { 
+    //             F: structureFactors[index].f, 
+    //             PHI: structureFactors[index].phi, 
+    //             Fobs: null, 
+    //             SigFobs: null, 
+    //             FreeR: null, 
+    //             isDifference: false, 
+    //             useWeight: false, 
+    //             calcStructFact: false 
+    //         }
+    //         await newMap.loadToCootFromMtzData(data, map_name, selectedColumns);
+    //         console.log(newMap);
+    //         break;
+    //     }
+    //     catch (error) {
+    //         console.log(error);
+    //     }
+    // }
+    // newMap.isEM = false;
+    // if (!(coord) == null) {
+    //     newMap.mapCentre = coord;
+    //     console.log('await centre map...');
+
+    //     await newMap.centreOnMap();
+    // }
+
+    // Dispatch the new molecule to Moorhen
+    console.log('await dispatch map...');
+    await dispatch(addMap(newMap));
+
+    console.log(`setting active map: ${newMap.molNo}`);
+    await dispatch(setActiveMap(newMap));
+    }
+
+
+
 
 async function loadMTZFromPath(commandCentre, glRef, dispatch, map_path, map_name, coord) {
 
@@ -212,6 +358,10 @@ async function updateCentre(state, dataIdx, landmarkIdx, mol) {
     await mol.centreOn(cid);
 }
 
+export async function getData() {
+
+}
+
 export async function loadXtalData(
     cootInitialized, 
     glRef, 
@@ -227,6 +377,7 @@ export async function loadXtalData(
     console.log('Loading molecule if possible...');
 
     if (cootInitialized && glRef.current && commandCentre.current) {
+        console.log('   Loading molecule!')
         // console.log(molecules);
         // console.log(maps);
         // console.log('Awaiting delete molecules...');
@@ -241,13 +392,20 @@ export async function loadXtalData(
 
         // Create the new molecule
         let newMolecule;
+        let newMoleculeData;
 
         const mol_name = state.inputData[dataIdx].dtag;
         const mol_path = state.inputData[dataIdx].pdb;
         // console.log(`Loading mol from ${mol_path}`)
         // console.log('Awaiting load molecule...');
         // console.log(state.ligandFiles.get(mol_name));
-        newMolecule = await loadMoleculeFromPath(commandCentre, glRef, coot_dispatch, mol_path, mol_name, []);
+        if (typeof state.nextMoleculeData[mol_path] === 'undefined') {
+            newMoleculeData = await loadMoleculeData(commandCentre, glRef, coot_dispatch, mol_path, []);
+        } else {
+            newMoleculeData = await state.nextMoleculeData[mol_path];
+        }
+        newMolecule = await loadMoleculeFromData(commandCentre, glRef, coot_dispatch, newMoleculeData, mol_name, []);
+
         // console.log(`newMolecule is ${newMolecule}`);    
         console.log('New molecule');
         console.log(newMolecule);
@@ -256,14 +414,21 @@ export async function loadXtalData(
         console.log(landmarkIdx);
         await updateCentre(state, dataIdx, landmarkIdx, newMolecule);
 
+        const map_name = mol_name;
+        const map_path = state.inputData[dataIdx].xmap;
         try {
-            const map_name = mol_name;
-            const map_path = state.inputData[dataIdx].xmap;
+            
+            let nextXMapData;
             // console.log(`Loading map from ${map_path}`)
             // console.log('Awaiting load map...');
             // console.log(`Centering ${[pandda_inspect_state.x, pandda_inspect_state.y, pandda_inspect_state.z]}`);
             // console.log(`Loading: ${map_path} as ${map_name}`);
-            await loadMTZFromPath(commandCentre, glRef, coot_dispatch, map_path, map_name, null);
+            if (typeof state.nextXMapData[map_path] === 'undefined') {
+                nextXMapData = await loadMTZData(commandCentre, glRef, coot_dispatch, map_path, []);
+            } else {
+                nextXMapData = await state.nextXMapData[map_path];
+            }
+            await loadMTZFromData(commandCentre, glRef, coot_dispatch, nextXMapData, map_name, null);
         console.log('completed loading event data');
         } catch (error) { 
             console.log(error);
@@ -282,6 +447,32 @@ export async function loadXtalData(
                 'type': 'finishedLoading'
             }
         );
+
+        dispatch(
+            {
+                'type': 'unloadData',
+                'mol_path': mol_path,
+                'map_path': map_path
+            }
+        );
+        if (!(typeof state.inputData[dataIdx+1] === 'undefined')) {
+            const molPath = state.inputData[dataIdx+1].pdb;
+            const mapPath = state.inputData[dataIdx+1].xmap;
+            
+            let molDataFuture = loadMoleculeData(commandCentre, glRef, coot_dispatch, molPath, []);
+            let xmapDataFuture = loadMTZData(commandCentre, glRef, coot_dispatch, mapPath, []);
+            dispatch(
+                {
+                    'type': 'preloadData',
+                    'molPath': molPath,
+                    'mapPath': mapPath,
+                    'molDataFuture': molDataFuture,
+                    'xmapDataFuture': xmapDataFuture
+                }
+            );
+        }
+
+
     }
 }
 
@@ -298,99 +489,6 @@ async function saveModel(molecules, pandda_inspect_state) {
     );
 }
 
-async function loadNextLigand(dispatch, molecules, pandda_inspect_state) {
-    const activeMol = molecules.moleculeList.filter((_mol) => { return _mol.molNo == pandda_inspect_state.activeProteinMol; })[0];
-
-    if (pandda_inspect_state.activeLigandMol) {
-        await activeMol.deleteCid(pandda_inspect_state.activeLigandMol);
-        await activeMol.updateAtoms();
-        await activeMol.updateLigands();
-    }
-
-    console.log('Adding ligand molecule...');
-    console.log(pandda_inspect_state.activeProteinMol);
-    console.log(molecules.moleculeList);
-
-    const currentLigandCIDs = activeMol.ligands.map((_lig) => { return _lig.cid; });
-    console.log(currentLigandCIDs);
-    // await activeMol.transferLigandDicts(newMolecule);
-    await activeMol.addLigandOfType('LIG', activeMol.molNo);
-    await activeMol.updateLigands();
-    console.log(activeMol);
-    const newLigandCIDs = activeMol.ligands.map((_lig) => { return _lig.cid; });
-    const activeLigandCID = newLigandCIDs.filter((_cid) => { return !currentLigandCIDs.includes(_cid); })[0];
-    console.log(activeMol.ligands);
-    console.log(activeLigandCID);
-
-    dispatch(
-        {
-            'type': 'setActiveLigandMol',
-            'val': activeLigandCID,
-        }
-    )
-}
-
-async function loadLigandAutobuild(glRef, commandCentre, molecules, coot_dispatch, dispatch, pandda_inspect_state) {
-    console.log('Adding best autobuild...')
-    // Get the active mol
-    const activeMol = molecules.moleculeList.filter((_mol) => { return _mol.molNo == pandda_inspect_state.activeProteinMol; })[0];
-
-    // Delete any active ligand mols
-    if (pandda_inspect_state.activeLigandMol) {
-        await activeMol.deleteCid(pandda_inspect_state.activeLigandMol);
-        await activeMol.updateAtoms();
-        await activeMol.updateLigands();
-    }
-
-    console.log('Adding autobuild ligand molecule...');
-    console.log(pandda_inspect_state.activeProteinMol);
-    console.log(molecules.moleculeList);
-
-    // Get current CIDs for determining new ligand
-    const currentLigandCIDs = activeMol.ligands.map((_lig) => { return _lig.cid; });
-    console.log(currentLigandCIDs);
-
-    // Load the best ligand autobuild as a new molecule
-    const mol_path = path.join(
-        pandda_inspect_state.args, 
-        'processed_datasets', 
-        pandda_inspect_state.dtag, 
-        `${pandda_inspect_state.dtag}_event_${pandda_inspect_state.event_idx}_best_autobuild.pdb`);
-    const mol_name = 'LIG';
-    try {
-        const newMol = await loadMoleculeFromPath(commandCentre, glRef, coot_dispatch, mol_path, mol_name, []);
-
-
-    // Merge the molecule into the active mol
-    console.log('Merging...')
-    await activeMol.mergeMolecules([newMol]);
-    await activeMol.updateLigands();
-
-    // Delte the new mol
-    console.log('Deleting used mol');
-    await newMol.delete();
-
-    //
-    console.log(activeMol);
-    const newLigandCIDs = activeMol.ligands.map((_lig) => { return _lig.cid; });
-    const activeLigandCID = newLigandCIDs.filter((_cid) => { return !currentLigandCIDs.includes(_cid); })[0];
-    console.log(activeMol.ligands);
-    console.log(activeLigandCID);
-    
-    console.log('Dispatching active mol update...');
-    dispatch(
-        {
-            'type': 'setActiveLigandMol',
-            'val': activeLigandCID,
-        }
-    )
-    } catch (error) {
-        alert(error);
-        return;
-    }
-}
-
-
 
 
 
@@ -406,35 +504,36 @@ export async function handleNextLandmark(cootInitialized, glRef, commandCentre, 
         
         // Handle if moving onto new data
         if (typeof landmarks[landmarkIdx+1] === 'undefined') {
-            console.log('Moving to new data!');
-            const nextDataIdx = dataIdx + 1;
-            const nextLandmarkIdx = 1;
-            if (typeof state.inputData[nextDataIdx] === 'undefined') {
-                alert('No more data!');
-                dispatch(
-                    {
-                        'type': 'finishedLoading'
-                    }
-                );
-                setIsLoading(false);
-            } else {
-                dispatch(
-                {
-                    type: 'handleChangeDataLandmark',
-                    commandCentre: commandCentre,
-                    glRef: glRef,
-                    dataIdx: nextDataIdx,
-                    landmarkIdx: nextLandmarkIdx,
-                });
-                await loadXtalData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, nextDataIdx, nextLandmarkIdx);
-                dispatch(
-                    {
-                        'type': 'finishedLoading'
-                    }
-                );
-                setIsLoading(false);
+            // console.log('Moving to new data!');
+            // const nextDataIdx = dataIdx + 1;
+            // const nextLandmarkIdx = 1;
+            // if (typeof state.inputData[nextDataIdx] === 'undefined') {
+            //     alert('No more data!');
+            //     dispatch(
+            //         {
+            //             'type': 'finishedLoading'
+            //         }
+            //     );
+            //     setIsLoading(false);
+            // } else {
+            //     dispatch(
+            //     {
+            //         type: 'handleChangeDataLandmark',
+            //         commandCentre: commandCentre,
+            //         glRef: glRef,
+            //         dataIdx: nextDataIdx,
+            //         landmarkIdx: nextLandmarkIdx,
+            //     });
+            //     await loadXtalData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, nextDataIdx, nextLandmarkIdx);
+            //     dispatch(
+            //         {
+            //             'type': 'finishedLoading'
+            //         }
+            //     );
+            //     setIsLoading(false);
 
-        }
+        // }
+            await handleNextData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading);
         } 
         // Otherwise handle moving to next annotation in view
         else {
@@ -486,24 +585,25 @@ console.log('Select event');
         
         // Handle if moving onto previous data
         if (typeof landmarks[landmarkIdx-1] === 'undefined') {
-            console.log('Moving to new data!');
-            const previousDataIdx = dataIdx - 1;
-            const previousLandmarkIdx = 1;
-            if (typeof state.inputData[previousDataIdx] === 'undefined') {
-                alert('No more data!');
-                setIsLoading(false);
-            } else {
-                dispatch(
-                {
-                    type: 'handleChangeDataLandmark',
-                    commandCentre: commandCentre,
-                    glRef: glRef,
-                    dataIdx: previousDataIdx,
-                    landmarkIdx: previousLandmarkIdx,
-                });
-                await loadXtalData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, previousDataIdx, previousLandmarkIdx);
-                setIsLoading(false);
-        }
+        //     console.log('Moving to new data!');
+        //     const previousDataIdx = dataIdx - 1;
+        //     const previousLandmarkIdx = 1;
+        //     if (typeof state.inputData[previousDataIdx] === 'undefined') {
+        //         alert('No more data!');
+        //         setIsLoading(false);
+        //     } else {
+        //         dispatch(
+        //         {
+        //             type: 'handleChangeDataLandmark',
+        //             commandCentre: commandCentre,
+        //             glRef: glRef,
+        //             dataIdx: previousDataIdx,
+        //             landmarkIdx: previousLandmarkIdx,
+        //         });
+        //         await loadXtalData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, previousDataIdx, previousLandmarkIdx);
+        //         setIsLoading(false);
+        // }
+            await handlePreviousData(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading)
         } 
         // Otherwise handle moving to next annotation in view
         else {

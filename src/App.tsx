@@ -53,8 +53,10 @@ function MoorhenController() {
   useEffect(
     () => {
       getInitialState(dispatch, state);
+      console.log('# Got initial state!')
     }, []
   )
+
 
   // console.log('pandda inspect data');
   // console.log(state.dataIdx);
@@ -92,6 +94,7 @@ function MoorhenController() {
   // Effect to load events
   useEffect(
     () => {
+      console.log('# Getting initial data...');
       loadXtalData(
         cootInitialized, 
         glRef, 
@@ -104,6 +107,8 @@ function MoorhenController() {
         state.dataIdx,
         state.landmarkIdx
       );
+      console.log('# Got initial data!');
+
     },
     [cootInitialized]
   )

@@ -49,7 +49,7 @@ function createWindow() {
     icon: path.join(__dirname, "..", "src", "icons", "png", "128x128.png"),
     webPreferences: {
       nodeIntegration: true,
-      nodeIntegrationInWorker: true,
+      // nodeIntegrationInWorker: true,
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
       webSecurity: false,
@@ -122,8 +122,11 @@ app.whenReady().then(
     console.log(inputPath);
     console.log(outputPath);
 
+    console.log('Loading input data...');
     let inputData = loadData(inputPath);
+    console.log('Initializing database...');
     let db = getDB(outputPath);
+    console.log('Pulling current output data from db...');
     let outputData = getOutputData(db);
 
 

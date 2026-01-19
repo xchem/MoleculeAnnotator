@@ -95,6 +95,8 @@ export const initialPanDDAInspectState = {
     inputData: [],
     outputData: [],
     args: {},
+    nextMoleculeData: {},
+    nextXMapData: {},
     activeProteinMol: null,
     activeLigandMol: null,
     loading: false
