@@ -7,7 +7,7 @@ function loadData(path) {
     let data = {};
 
     try {
-        data = yaml.load(fs.readFileSync(path, 'utf8'));
+        data = JSON.parse(fs.readFileSync(path, 'utf8'));
     } catch(error) {
         console.log(error)
     }
