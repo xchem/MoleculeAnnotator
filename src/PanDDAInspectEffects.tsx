@@ -745,8 +745,11 @@ export async function handleNextUnviewed(cootInitialized, glRef, commandCentre, 
         for (var key in state.outputData) {
             outputDataIdxs[state.outputData[key].dataIdx] = true;
         };
-        
+
         for (var key in state.inputData) {
+            if (key <= state.dataIdx) {
+                continue;
+            }
             if (typeof outputDataIdxs[key] === 'undefined') {
                 let nextDataIdx = key;
                 let nextLandmarkIdx = 1;
