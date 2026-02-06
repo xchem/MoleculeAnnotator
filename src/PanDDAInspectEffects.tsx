@@ -350,12 +350,17 @@ async function removeMapJS(coot_dispatch, _map) {
 }
 
 async function updateCentre(state, dataIdx, landmarkIdx, mol) {
+    console.log(`Updating centre to: dataIdx: ${dataIdx}; landmarkIdx: ${landmarkIdx}`)
+    if (typeof state.inputData[dataIdx].landmarks[landmarkIdx] === 'undefined') {
+        return false;
+    }
     let chain = state.inputData[dataIdx].landmarks[landmarkIdx][0];
     let res = state.inputData[dataIdx].landmarks[landmarkIdx][1];
     let cid = `//${chain}/${res}`;
     console.log(`cid: ${cid}`);
     console.log(mol);
     await mol.centreOn(cid);
+    return true;
 }
 
 export async function getData() {
@@ -415,7 +420,10 @@ export async function loadXtalData(
         console.log(state);
         console.log(dataIdx);
         console.log(landmarkIdx);
-        await updateCentre(state, dataIdx, landmarkIdx, newMolecule);
+        let gotLandmark = await updateCentre(state, dataIdx, landmarkIdx, newMolecule);
+        if (!gotLandmark) {
+                alert('Got no landmarks for this dataset! Skip to next one!');
+            }
 
         const map_name = mol_name;
         const map_path = state.inputData[dataIdx].xmap;
@@ -563,7 +571,10 @@ export async function handleNextLandmark(cootInitialized, glRef, commandCentre, 
             const activeMol = molecules.moleculeList.filter(
                 (_mol) => { return _mol.molNo == state.activeProteinMol; })[0];
             console.log(`Centering on mol: ${activeMol}`);
-            await updateCentre(state, nextDataIdx, nextLandmarkIdx, activeMol);
+            let gotLandmark = await updateCentre(state, nextDataIdx, nextLandmarkIdx, activeMol);
+            if (!gotLandmark) {
+                alert('Got no landmarks for this dataset! Skip to next one!');
+            }
             setIsLoading(false);
         }
         console.log(state);
@@ -633,7 +644,10 @@ console.log('Select event');
             const activeMol = molecules.moleculeList.filter(
                 (_mol) => { return _mol.molNo == state.activeProteinMol; })[0];
             console.log(`Centering on mol: ${activeMol}`);
-            await updateCentre(state, previousDataIdx, previousLandmarkIdx, activeMol);
+            let gotLandmark = await updateCentre(state, previousDataIdx, previousLandmarkIdx, activeMol);
+            if (!gotLandmark) {
+                alert('Got no landmarks for this dataset! Skip to next one!');
+            }
             setIsLoading(false);
         }
         console.log(state);
@@ -727,8 +741,13 @@ export async function handlePreviousData(cootInitialized, glRef, commandCentre, 
 export async function handleNextUnviewed(cootInitialized, glRef, commandCentre, molecules, maps, coot_dispatch, dispatch, state, setIsLoading) {
     let changed = false;
     async function nextUnviewed() {
+        let outputDataIdxs = {};
+        for (var key in state.outputData) {
+            outputDataIdxs[state.outputData[key].dataIdx] = true;
+        };
+        
         for (var key in state.inputData) {
-            if (typeof state.outputData[key] === 'undefined') {
+            if (typeof outputDataIdxs[key] === 'undefined') {
                 let nextDataIdx = key;
                 let nextLandmarkIdx = 1;
                 dispatch(
