@@ -376,7 +376,7 @@ export async function loadXtalData(
 ) {
     console.log('Loading molecule if possible...');
 
-    if (cootInitialized && glRef.current && commandCentre.current && (!(typeof state.outputData[1] === 'undefined'))) {
+    if (cootInitialized && glRef.current && commandCentre.current && (!(typeof state.inputData[1] === 'undefined'))) {
         console.log('   Loading molecule!')
         // console.log(molecules);
         // console.log(maps);
