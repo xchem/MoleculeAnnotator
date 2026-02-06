@@ -744,7 +744,9 @@ export async function handleNextUnviewed(cootInitialized, glRef, commandCentre, 
                     coot_dispatch, dispatch, state, nextDataIdx, nextLandmarkIdx);
                 setIsLoading(false);
                 changed = true;
+                break;
             }
+
         }
         if (!changed) {
             alert('All data processed!');
