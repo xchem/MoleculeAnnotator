@@ -394,6 +394,9 @@ export async function loadXtalData(
         let newMolecule;
         let newMoleculeData;
 
+        console.log(`Loading from dataIdx: ${dataIdx}`);
+        console.log(state.inputData);
+        console.log(state.inputData[dataIdx]);
         const mol_name = state.inputData[dataIdx].dtag;
         const mol_path = state.inputData[dataIdx].pdb;
         // console.log(`Loading mol from ${mol_path}`)
