@@ -743,7 +743,7 @@ export async function handleNextUnviewed(cootInitialized, glRef, commandCentre, 
     async function nextUnviewed() {
         let outputDataIdxs = {};
         for (var key in state.outputData) {
-            outputDataIdxs[state.outputData[key].dataIdx] = true;
+            outputDataIdxs[key] = true;
         };
 
         console.log('# NEXT UNVIEWED');
